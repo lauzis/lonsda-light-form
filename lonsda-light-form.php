@@ -31,6 +31,9 @@ if (!file_exists($llf_autoload)) {
 }
 
 require_once $llf_autoload;
+// Required explicitly: Composer's files autoload runs only one copy of this
+// package per request, so the version gate would never see the others.
+require_once LLF_DIR . 'vendor/lauzis/wp-plugin-packages/bootstrap.php';
 
 if (!defined('LLF_LOG_PATH')) {
     // Under uploads/, never inside the plugin directory: WordPress deletes and

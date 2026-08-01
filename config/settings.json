@@ -1,0 +1,55 @@
+{
+  "sections": [
+    {
+      "id": "delivery",
+      "title": "Delivery",
+      "description": "Where submissions are sent.",
+      "fields": [
+        {
+          "id": "recipient",
+          "type": "text",
+          "title": "Recipient Email",
+          "default_value": "@callback:llf_admin_email",
+          "attributes": { "type": "email" },
+          "help_text": "Where submissions are delivered. Defaults to the site administration email.",
+          "help_text_args": ["@callback:llf_admin_email"]
+        },
+        {
+          "id": "subject_prefix",
+          "type": "text",
+          "title": "Subject Prefix",
+          "default_value": "[Form]",
+          "help_text": "Prepended to the subject of every notification email."
+        },
+        {
+          "id": "store_submissions",
+          "type": "checkbox",
+          "title": "Store submissions",
+          "default_value": true,
+          "help_text": "Keep a copy in the database as well as emailing it. Turn this off if you would rather not retain personal data."
+        }
+      ]
+    },
+    {
+      "id": "spam",
+      "title": "Spam",
+      "fields": [
+        {
+          "id": "honeypot",
+          "type": "checkbox",
+          "title": "Honeypot field",
+          "default_value": true,
+          "help_text": "Adds a hidden field that real people never fill in. Cheap, and invisible to visitors."
+        },
+        {
+          "id": "min_seconds",
+          "type": "text",
+          "title": "Minimum time to complete (seconds)",
+          "default_value": "3",
+          "attributes": { "type": "number", "min": "0" },
+          "help_text": "Reject submissions sent faster than this. Set to 0 to disable the check."
+        }
+      ]
+    }
+  ]
+}

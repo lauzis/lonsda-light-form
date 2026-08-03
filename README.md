@@ -145,6 +145,30 @@ and everything else was pushing it off the screen.
 | Notifications | Who gets emailed, and whether entries are kept. |
 | Protection | reCAPTCHA, when it is configured. |
 
+## Import and export
+
+**Settings → Import / Export** moves form definitions between sites as JSON.
+Tick the forms to include, or take all of them.
+
+What travels is what a form *is* — fields, wording, notification settings — not
+where it lives. No ids, no post references, no entries: an id means nothing on
+the site it lands on, and entries are a record of what people sent rather than
+part of the design.
+
+Import always **creates**. Matching by title would be the only way to update,
+and two forms may legitimately share one — quietly replacing the wrong form is
+worse than leaving a duplicate to delete. Files are checked for a format marker
+before anything is read, so a stray JSON is refused rather than half-applied.
+
+Imported forms are written through the same path the editor uses, so one that
+arrived from a file is indistinguishable from one built by hand. A translation
+key someone chose is carried across as chosen, rather than being treated as
+generated and rewritten the first time a field is renamed.
+
+The panel sits inside the settings form, and HTML forbids nesting one form in
+another — so export is an ordinary link, which still works with JavaScript off,
+and import posts on its own.
+
 ## Entries
 
 Submissions are stored in `{prefix}llf_entries` and listed under **Lonsda Forms

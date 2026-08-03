@@ -39,6 +39,11 @@ class Settings
 
         $page->callback('llf_admin_email', static fn(): string => (string) get_option('admin_email'));
 
+        // Passed as a callable rather than a string: the panel lists the forms
+        // that exist and carries a nonce, both of which have to be current when
+        // the page is drawn rather than when the schema is read.
+        $page->callback('llf_transfer_ui', [Admin::class, 'transferPanel']);
+
         $page->register(LLF_DIR . 'config/settings.json', [
             'prefix' => self::PREFIX,
             'domain' => 'lonsda-light-form',

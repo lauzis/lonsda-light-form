@@ -3,7 +3,7 @@
  * Plugin Name: Lonsda Light Form
  * Plugin URI:  https://github.com/lauzis/lonsda-light-form
  * Description: Lightweight Carbon Fields form builder.
- * Version:     0.8.0
+ * Version:     0.9.0
  * Author:      Aivars Lauzis
  * Text Domain: lonsda-light-form
  * Domain Path: /languages
@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('LLF_VERSION', '0.8.0');
+define('LLF_VERSION', '0.9.0');
 define('LLF_DIR', plugin_dir_path(__FILE__));
 define('LLF_URL', plugin_dir_url(__FILE__));
 define('LLF_SLUG', 'lonsda-light-form');
@@ -131,6 +131,8 @@ add_action('admin_menu', static function (): void {
 add_action('init', ['\LonsdaLightForm\Admin', 'init']);
 add_action('admin_init', ['\LonsdaLightForm\Admin', 'handleTranslationActions']);
 add_action('admin_init', ['\LonsdaLightForm\Admin', 'handleEntryActions']);
+add_action('admin_post_llf_export', ['\LonsdaLightForm\Admin', 'handleExport']);
+add_action('admin_post_llf_import', ['\LonsdaLightForm\Admin', 'handleImport']);
 
 \LonsdaLightForm\Translations::init();
 \LonsdaLightForm\Entries::init();

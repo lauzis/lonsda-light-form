@@ -229,6 +229,233 @@ class Admin
         }
     }
 
+    /**
+     * The Import / Export panel on the settings page.
+     *
+     * Returned as markup rather than echoed, because Carbon Fields renders an
+     * html field wherever it likes. It sits inside the settings form, so it
+     * cannot contain a form of its own — HTML forbids nesting them and the
+     * browser would silently merge the inputs into the settings form. Export is
+     * therefore an ordinary link, and import posts on its own.
+     */
+    public static function transferPanel(): string
+    {
+        $forms  = \LonsdaLightForm\Forms::all();
+        $base   = admin_url('admin-post.php');
+        $export = wp_nonce_url(add_query_arg('action', 'llf_export', $base), 'llf-transfer');
+
+        ob_start();
+        ?>
+        <div class="llf-transfer">
+            <h3><?php esc_html_e('Export', 'lonsda-light-form'); ?></h3>
+
+            <?php if (!$forms) : ?>
+                <p><em><?php esc_html_e('There are no forms to export yet.', 'lonsda-light-form'); ?></em></p>
+            <?php else : ?>
+                <p class="description">
+                    <?php esc_html_e('Downloads the chosen forms as JSON: their fields, wording and settings. Entries are not included — they are a record of what people sent, not part of the form.', 'lonsda-light-form'); ?>
+                </p>
+
+                <p>
+                    <label>
+                        <input type="checkbox" id="llf-export-all" checked>
+                        <strong><?php esc_html_e('All forms', 'lonsda-light-form'); ?></strong>
+                    </label>
+                </p>
+
+                <ul class="llf-export-list" style="margin:0 0 12px 22px;">
+                    <?php foreach ($forms as $form) : ?>
+                        <li>
+                            <label>
+                                <input type="checkbox" class="llf-export-one"
+                                       value="<?php echo esc_attr((string) $form->id); ?>" checked>
+                                <?php echo esc_html($form->title ?: __('(no title)', 'lonsda-light-form')); ?>
+                                <span class="description">#<?php echo esc_html((string) $form->id); ?></span>
+                            </label>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+
+                <p>
+                    <a class="button button-primary" id="llf-export-go"
+                       href="<?php echo esc_url($export); ?>">
+                        <?php esc_html_e('Download JSON', 'lonsda-light-form'); ?>
+                    </a>
+                </p>
+            <?php endif; ?>
+
+            <hr>
+
+            <h3><?php esc_html_e('Import', 'lonsda-light-form'); ?></h3>
+            <p class="description">
+                <?php esc_html_e('Choose a file exported from this or another site. Imported forms are always added, never merged into an existing one — two forms can share a title, and replacing the wrong one is worse than leaving a duplicate to delete.', 'lonsda-light-form'); ?>
+            </p>
+
+            <p>
+                <input type="file" id="llf-import-file" accept="application/json,.json">
+                <button type="button" class="button" id="llf-import-go" disabled>
+                    <?php esc_html_e('Import', 'lonsda-light-form'); ?>
+                </button>
+            </p>
+            <p id="llf-import-status" class="description" aria-live="polite"></p>
+
+            <script>
+            ( function () {
+                var all  = document.getElementById( 'llf-export-all' ),
+                    ones = document.querySelectorAll( '.llf-export-one' ),
+                    go   = document.getElementById( 'llf-export-go' ),
+                    base = <?php echo wp_json_encode($export); ?>;
+
+                function chosen() {
+                    return Array.prototype.filter.call( ones, function ( c ) { return c.checked; } )
+                        .map( function ( c ) { return c.value; } );
+                }
+
+                function sync() {
+                    if ( ! go ) { return; }
+                    var picked = chosen();
+                    // No ids means every form, which is also what the plain link
+                    // does — so the button still works with JS switched off.
+                    go.href = picked.length === ones.length
+                        ? base
+                        : base + '&ids=' + encodeURIComponent( picked.join( ',' ) );
+                    go.classList.toggle( 'disabled', picked.length === 0 );
+                }
+
+                if ( all ) {
+                    all.addEventListener( 'change', function () {
+                        Array.prototype.forEach.call( ones, function ( c ) { c.checked = all.checked; } );
+                        sync();
+                    } );
+                }
+
+                Array.prototype.forEach.call( ones, function ( c ) {
+                    c.addEventListener( 'change', function () {
+                        all.checked = chosen().length === ones.length;
+                        sync();
+                    } );
+                } );
+
+                sync();
+
+                var file   = document.getElementById( 'llf-import-file' ),
+                    button = document.getElementById( 'llf-import-go' ),
+                    status = document.getElementById( 'llf-import-status' );
+
+                if ( ! file || ! button ) { return; }
+
+                file.addEventListener( 'change', function () {
+                    button.disabled = ! file.files.length;
+                    status.textContent = '';
+                } );
+
+                button.addEventListener( 'click', function () {
+                    if ( ! file.files.length ) { return; }
+
+                    // Posted on its own rather than with the settings: this
+                    // panel is inside the settings form and cannot be one.
+                    var data = new FormData();
+                    data.append( 'action', 'llf_import' );
+                    data.append( '_wpnonce', <?php echo wp_json_encode(wp_create_nonce('llf-transfer')); ?> );
+                    data.append( 'llf_file', file.files[0] );
+
+                    button.disabled = true;
+                    status.textContent = <?php echo wp_json_encode(__('Importing…', 'lonsda-light-form')); ?>;
+
+                    fetch( <?php echo wp_json_encode($base); ?>, {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        body: data
+                    } )
+                        .then( function ( r ) { return r.json(); } )
+                        .then( function ( r ) {
+                            status.textContent = r.message || '';
+                            button.disabled = false;
+
+                            if ( r.created ) { window.location.reload(); }
+                        } )
+                        .catch( function () {
+                            status.textContent = <?php echo wp_json_encode(__('The import could not be completed.', 'lonsda-light-form')); ?>;
+                            button.disabled = false;
+                        } );
+                } );
+            } )();
+            </script>
+        </div>
+        <?php
+
+        return (string) ob_get_clean();
+    }
+
+    /** Sends the export file. */
+    public static function handleExport(): void
+    {
+        if (!current_user_can('manage_options')) {
+            wp_die(esc_html__('You are not allowed to export forms.', 'lonsda-light-form'));
+        }
+
+        check_admin_referer('llf-transfer');
+
+        $ids = [];
+
+        if (!empty($_GET['ids'])) {
+            foreach (explode(',', sanitize_text_field(wp_unslash($_GET['ids']))) as $id) {
+                $id = (int) trim($id);
+
+                if ($id > 0) {
+                    $ids[] = $id;
+                }
+            }
+        }
+
+        $body = \LonsdaLightForm\Transfer::export($ids);
+
+        nocache_headers();
+        header('Content-Type: application/json; charset=utf-8');
+        header('Content-Disposition: attachment; filename="' . \LonsdaLightForm\Transfer::filename() . '"');
+        header('Content-Length: ' . strlen($body));
+
+        echo $body; // phpcs:ignore WordPress.Security.EscapeOutput -- JSON, not markup.
+        exit;
+    }
+
+    /** Receives an uploaded export and answers as JSON. */
+    public static function handleImport(): void
+    {
+        if (!current_user_can('manage_options')) {
+            wp_send_json(['created' => 0, 'message' => __('You are not allowed to import forms.', 'lonsda-light-form')], 403);
+        }
+
+        check_admin_referer('llf-transfer');
+
+        $file = $_FILES['llf_file'] ?? [];
+
+        if (empty($file['tmp_name']) || !is_uploaded_file($file['tmp_name'])) {
+            wp_send_json(['created' => 0, 'message' => __('No file was uploaded.', 'lonsda-light-form')]);
+        }
+
+        if (($file['size'] ?? 0) > \LonsdaLightForm\Transfer::MAX_UPLOAD) {
+            wp_send_json(['created' => 0, 'message' => __('That file is too large to be an export.', 'lonsda-light-form')]);
+        }
+
+        $report  = \LonsdaLightForm\Transfer::import((string) file_get_contents($file['tmp_name']));
+        $created = count($report['created']);
+
+        $message = $created
+            ? sprintf(
+                /* translators: %d: number of forms */
+                _n('%d form imported.', '%d forms imported.', $created, 'lonsda-light-form'),
+                $created
+            )
+            : __('Nothing was imported.', 'lonsda-light-form');
+
+        if ($report['errors']) {
+            $message .= ' ' . implode(' ', $report['errors']);
+        }
+
+        wp_send_json(['created' => $created, 'message' => $message]);
+    }
+
     /** Renders the entries page. */
     public static function renderEntries(): void
     {

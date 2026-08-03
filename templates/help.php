@@ -114,9 +114,34 @@ $llf_settings_url    = admin_url('admin.php?page=' . LLF_SLUG . '-settings');
     </table>
 
     <h2><?php esc_html_e('reCAPTCHA', 'lonsda-light-form'); ?></h2>
+    <p style="max-width:860px;">
+        <?php
+        printf(
+            /* translators: 1: link to create keys, 2: link to the reCAPTCHA console */
+            wp_kses(
+                __('Keys come from Google, not from here. Register the site at <a href="%1$s" target="_blank" rel="noopener noreferrer">google.com/recaptcha/admin/create</a> — choose <strong>reCAPTCHA v2</strong> with the "I\'m not a robot" tick box, add this site\'s domain, and it gives you a Site Key and a Secret Key. Keys you already have are listed at <a href="%2$s" target="_blank" rel="noopener noreferrer">google.com/recaptcha/admin</a>.', 'lonsda-light-form'),
+                ['a' => ['href' => [], 'target' => [], 'rel' => []], 'strong' => []]
+            ),
+            'https://www.google.com/recaptcha/admin/create',
+            'https://www.google.com/recaptcha/admin'
+        );
+        ?>
+    </p>
+    <p style="max-width:860px;">
+        <?php esc_html_e('Only v2 with the tick box is supported. v3 scores requests instead of challenging them and needs a threshold to judge against, which is a different feature rather than a different key.', 'lonsda-light-form'); ?>
+    </p>
     <?php if ($llf_recaptcha_ready) : ?>
         <p>
-            <?php esc_html_e('Both keys are configured, so each form has a "Protect with reCAPTCHA" option. Turn it on per form rather than globally — a short internal form rarely needs it, a public contact form usually does.', 'lonsda-light-form'); ?>
+            <?php
+            printf(
+                /* translators: %s: link to the settings page */
+                wp_kses(
+                    __('Both keys are set under <a href="%s">Settings</a>, so each form has a "Protect with reCAPTCHA" option. Turn it on per form rather than globally — a short internal form rarely needs it, a public contact form usually does.', 'lonsda-light-form'),
+                    ['a' => ['href' => []]]
+                ),
+                esc_url($llf_settings_url)
+            );
+            ?>
         </p>
     <?php else : ?>
         <p>
@@ -314,6 +339,23 @@ $llf_settings_url    = admin_url('admin.php?page=' . LLF_SLUG . '-settings');
     <h2><?php esc_html_e('Spam', 'lonsda-light-form'); ?></h2>
     <p>
         <?php esc_html_e('Every form carries a hidden honeypot field and records when it was opened; a submission that fills the honeypot in, or arrives faster than the configured minimum, is refused. Both are configurable under Settings, and neither tells the sender which check it tripped — that would only help the next attempt.', 'lonsda-light-form'); ?>
+    </p>
+
+    <h2><?php esc_html_e('Moving forms between sites', 'lonsda-light-form'); ?></h2>
+    <p style="max-width:860px;">
+        <?php
+        printf(
+            /* translators: %s: link to the settings page */
+            wp_kses(
+                __('The Import / Export tab under <a href="%s">Settings</a> downloads forms as JSON — all of them, or whichever you tick — and takes a file back. What travels is the form itself: its fields, wording and notification settings. Entries do not, because they are a record of what people sent rather than part of the form.', 'lonsda-light-form'),
+                ['a' => ['href' => []]]
+            ),
+            esc_url($llf_settings_url)
+        );
+        ?>
+    </p>
+    <p style="max-width:860px;">
+        <?php esc_html_e('Importing always adds. It never merges into a form you already have — two forms can share a title, and replacing the wrong one is worse than leaving a duplicate to delete. A file that was not exported from this plugin is refused rather than half-read.', 'lonsda-light-form'); ?>
     </p>
 
     <h2><?php esc_html_e('Where forms are stored', 'lonsda-light-form'); ?></h2>

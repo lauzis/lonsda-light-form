@@ -92,10 +92,32 @@ rename to mail     →  contact_email            still left alone
 clear the box      →  field_mail_label         back under automatic control
 ```
 
-Strings are registered with WPML when a form is saved, rather than when one is
-rendered — a translator should see a string before anyone has visited the page
-it appears on. Any other translation system can hook `lonsda_form_string`, which
-receives the text, its key and the context.
+### Delivering the translations
+
+Two routes, tried in that order.
+
+**WPML String Translation.** Strings are registered when a form is saved rather
+than when one is rendered — a translator should see a string before anyone has
+visited the page it appears on.
+
+**Gettext files**, for everyone else. `wp i18n make-pot` scans source and these
+strings are rows in a table, so **Lonsda Forms → Translations** generates the
+POT instead: download it, translate it in Poedit or anything else, upload the
+result. A `.po` is compiled to `.mo` on the way in, so either will do.
+
+Files live in `wp-content/languages/lonsda-light-form/`, not in the plugin
+folder — WordPress replaces that folder on every update and would take the
+translations with it. They can equally be dropped there over FTP.
+
+The translation key is the gettext **context** and the label is the **msgid**,
+so an untranslated string falls back to the label somebody wrote rather than to
+`field_email_label`. The file has to be named for the locale WordPress serves
+the page in, or gettext never looks for it; the page shows the current locale
+and lists what is installed.
+
+WPML is consulted first and gettext fills in whatever it has no translation for.
+Anything else can hook `lonsda_form_string`, which receives the text, its key
+and the context.
 
 ## Handling submissions
 

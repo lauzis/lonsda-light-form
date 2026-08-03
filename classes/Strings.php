@@ -5,13 +5,14 @@ namespace LonsdaLightForm;
 /**
  * Translates a form's own wording — labels, placeholders, the submit button.
  *
- * These strings are typed into the editor, so they are not in the .pot file and
- * gettext cannot reach them. Each carries a translation key instead, and this
- * decides what that key means.
+ * These strings are typed into the editor, so `wp i18n make-pot` cannot see
+ * them. Each carries a translation key instead, and this decides what that key
+ * means.
  *
- * WPML is handled directly because it is the common case and its string
- * translation is exactly this: a key, a context, and an original. Anything else
- * hooks the filter.
+ * Two sources, tried in order. WPML first, because a site running it manages
+ * strings in its editor and expects that to win. Then gettext, against MO files
+ * in wp-content/languages/ — see Translations — which is what a site without
+ * WPML uses. Anything else hooks the filter.
  */
 class Strings
 {
@@ -32,8 +33,17 @@ class Strings
 
         // WPML returns the original untouched when the string is unregistered
         // or has no translation in the current language, so this is safe to
-        // call whether or not anyone has translated anything yet.
+        // call whether or not anyone has translated anything yet — and a result
+        // that differs from the original is the only reliable sign it had one.
         $translated = (string) apply_filters('wpml_translate_single_string', $text, self::CONTEXT, $key);
+
+        if ($translated === $text) {
+            // Nothing from WPML, so try the gettext files. Both are offered
+            // because a site has one or the other far more often than both:
+            // WPML sites translate in its editor, everyone else wants a .po
+            // they can open in Poedit.
+            $translated = translate_with_gettext_context($text, $key, Translations::DOMAIN);
+        }
 
         /**
          * Filters a form string after the built-in translation layer.

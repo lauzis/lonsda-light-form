@@ -76,6 +76,88 @@ class Admin
         require LLF_DIR . 'templates/forms.php';
     }
 
+    /**
+     * Handles the POT download and the translation upload.
+     *
+     * On admin_init rather than in the page template: a download has to send
+     * headers before any output, and a redirect after an upload has to happen
+     * before the admin page starts rendering.
+     */
+    public static function handleTranslationActions(): void
+    {
+        if (!isset($_GET['page'], $_REQUEST['llf_action']) || LLF_SLUG . '-translations' !== $_GET['page']) {
+            return;
+        }
+
+        if (!current_user_can('manage_options')) {
+            wp_die(esc_html__('You are not allowed to manage translations.', 'lonsda-light-form'));
+        }
+
+        $action = sanitize_key(wp_unslash($_REQUEST['llf_action']));
+
+        if ('download' === $action) {
+            check_admin_referer('llf-translations');
+
+            $body = \LonsdaLightForm\Translations::pot();
+
+            nocache_headers();
+            header('Content-Type: text/x-gettext-translation; charset=utf-8');
+            header('Content-Disposition: attachment; filename="' . \LonsdaLightForm\Translations::DOMAIN . '.pot"');
+            header('Content-Length: ' . strlen($body));
+
+            echo $body; // phpcs:ignore WordPress.Security.EscapeOutput -- a POT file, not markup.
+            exit;
+        }
+
+        if ('upload' === $action) {
+            check_admin_referer('llf-translations');
+
+            $result = \LonsdaLightForm\Translations::store(
+                $_FILES['llf_file'] ?? [],
+                isset($_POST['llf_locale']) ? sanitize_text_field(wp_unslash($_POST['llf_locale'])) : ''
+            );
+
+            self::redirectWithNotice($result);
+        }
+
+        if ('delete' === $action) {
+            check_admin_referer('llf-translations');
+
+            $locale  = isset($_GET['llf_locale']) ? sanitize_text_field(wp_unslash($_GET['llf_locale'])) : '';
+            $deleted = \LonsdaLightForm\Translations::delete($locale);
+
+            self::redirectWithNotice(
+                $deleted ? true : new \WP_Error('llf_not_deleted', __('That file could not be removed.', 'lonsda-light-form'))
+            );
+        }
+    }
+
+    /**
+     * @param true|\WP_Error $result
+     */
+    private static function redirectWithNotice($result): void
+    {
+        $url = add_query_arg(
+            is_wp_error($result)
+                ? ['llf_error' => rawurlencode($result->get_error_message())]
+                : ['llf_done' => 1],
+            admin_url('admin.php?page=' . LLF_SLUG . '-translations')
+        );
+
+        wp_safe_redirect($url);
+        exit;
+    }
+
+    /** Renders the translations page. */
+    public static function renderTranslations(): void
+    {
+        if (!current_user_can('manage_options')) {
+            return;
+        }
+
+        require LLF_DIR . 'templates/translations.php';
+    }
+
     /** Renders the self tests page. */
     public static function renderTests(): void
     {

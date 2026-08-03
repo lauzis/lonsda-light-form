@@ -128,7 +128,7 @@ does not opt in to any of it.
 | --- | --- |
 | `form_id` | The form that was submitted. |
 | `post_id` | The post or page it was submitted from, or `null` when there is no post — a form in a footer or widget, say. Null rather than `0`, which would read as a real id. |
-| `language` | Language code of that post, from WPML or Polylang. Falls back to the current language, then to the site locale. |
+| `language` | Language code of that post. Detected by the shared package's `Language` component, which handles WPML and Polylang and lets anything else answer through a filter. Falls back to the site locale. |
 | `time` | Unix timestamp. |
 | `submitted_at` | The same moment as `Y-m-d H:i:s` in UTC, for anything that has to be read by a person. UTC so it does not shift when the site's timezone setting changes. |
 | `ip` | `REMOTE_ADDR`. |

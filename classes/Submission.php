@@ -351,44 +351,18 @@ class Submission
     /**
      * The language the form was submitted in.
      *
-     * Asks for the post's language rather than the request's where a
-     * translation plugin can tell us: they are the same on an ordinary page
-     * view, but a form rendered somewhere without a post of its own would
-     * otherwise report nothing.
+     * Asked of the post rather than the request: the two agree on an ordinary
+     * page view, but a form rendered without a post of its own would otherwise
+     * report nothing.
      */
     private static function language(int $post_id): string
     {
-        if ($post_id > 0) {
-            $details = apply_filters('wpml_post_language_details', null, $post_id);
-
-            if (is_array($details) && !empty($details['language_code'])) {
-                return (string) $details['language_code'];
-            }
-
-            if (function_exists('pll_get_post_language')) {
-                $lang = pll_get_post_language($post_id);
-
-                if ($lang) {
-                    return (string) $lang;
-                }
-            }
+        if (class_exists('\\Lauzis\\WpPackages\\I18n\\Language')) {
+            return \Lauzis\WpPackages\I18n\Language::for_post($post_id);
         }
 
-        $current = apply_filters('wpml_current_language', null);
-
-        if (is_string($current) && '' !== $current) {
-            return $current;
-        }
-
-        if (function_exists('pll_current_language')) {
-            $lang = pll_current_language();
-
-            if ($lang) {
-                return (string) $lang;
-            }
-        }
-
-        // No translation plugin: the site has one language and this is it.
-        return determine_locale();
+        // The shared package handles WPML, Polylang and everything else through
+        // its filters. Without it there is still a site locale to report.
+        return function_exists('determine_locale') ? determine_locale() : '';
     }
 }

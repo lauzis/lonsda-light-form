@@ -93,6 +93,14 @@ class FormBuilder
                         ->set_attribute('type', 'number')
                         ->set_attribute('min', '0')
                         ->set_help_text(__('Longest accepted value, in characters. Leave blank for no limit.', 'lonsda-light-form')),
+
+                    Field::make('text', 'translation_key', __('Translation key', 'lonsda-light-form'))
+                        ->set_help_text(__('Identifies this label for translation. Filled in from the name and kept in step with it — until you change it, after which it is left alone. Clear it to go back to the generated one.', 'lonsda-light-form')),
+
+                    // Remembers what was last generated, which is the only way
+                    // to tell "the name changed, so regenerate" apart from
+                    // "someone chose this key, so leave it alone".
+                    Field::make('hidden', 'translation_key_auto'),
                 ])
                 ->set_header_template('<%- label || "Field" %>'),
         ];
@@ -114,9 +122,135 @@ class FormBuilder
                 );
         }
 
+        $fields[] = Field::make('text', 'llf_submit_label', __('Submit button text', 'lonsda-light-form'))
+            ->set_default_value(self::defaultSubmitLabel())
+            ->set_help_text(__('Wording on the button. Leave empty for the default.', 'lonsda-light-form'));
+
+        $fields[] = Field::make('text', 'llf_submit_translation_key', __('Submit button translation key', 'lonsda-light-form'))
+            ->set_help_text(__('Filled in from the form title and kept in step with it, unless you change it. Clear it to go back to the generated one.', 'lonsda-light-form'));
+
+        $fields[] = Field::make('hidden', 'llf_submit_translation_key_auto');
+
+        $fields[] = Field::make('rich_text', 'llf_success_message', __('Message after submission', 'lonsda-light-form'))
+            ->set_settings(['media_buttons' => false])
+            ->set_default_value(self::defaultSuccessMessage())
+            ->set_help_text(__('Shown once the form has been accepted. Leave empty to use the default wording.', 'lonsda-light-form'));
+
+        // Default on: leaving a filled-in form on screen under a "thank you"
+        // reads as though nothing was sent, and invites a second submission.
+        $fields[] = Field::make('checkbox', 'llf_hide_on_success', __('Hide the form after submission', 'lonsda-light-form'))
+            ->set_default_value(true)
+            ->set_help_text(__('Replaces the form with the message above. Switch off to leave the form in place so another submission can be made.', 'lonsda-light-form'));
+
         Container::make('post_meta', __('Form Structure', 'lonsda-light-form'))
             ->where('post_type', '=', Forms::POST_TYPE)
             ->add_fields($fields);
+    }
+
+    /**
+     * Stores the resolved keys back on the post, so the editor shows them.
+     *
+     * Without this the boxes stay as they were typed — empty for a new field —
+     * and the key a form is actually using would only be visible by reading the
+     * table. Only the key columns are touched; the rest of each row is left as
+     * the editor saved it.
+     *
+     * @param array<int, array{translation_key: string, translation_key_auto: string}> $keys
+     */
+    private static function writeBackKeys(int $post_id, array $keys, string $submitKey, string $submitKeyAuto): void
+    {
+        if (!function_exists('carbon_get_post_meta') || !function_exists('carbon_set_post_meta')) {
+            return;
+        }
+
+        $rows    = carbon_get_post_meta($post_id, 'llf_fields');
+        $rows    = is_array($rows) ? $rows : [];
+        $changed = false;
+
+        // $keys is built in the same pass that builds the definition, which
+        // skips rows with no label — so it is indexed independently of $rows.
+        $i = 0;
+
+        foreach ($rows as $index => $row) {
+            if ('' === trim((string) ($row['label'] ?? ''))) {
+                continue;
+            }
+
+            if (!isset($keys[$i])) {
+                break;
+            }
+
+            foreach ($keys[$i] as $column => $value) {
+                if ((string) ($row[$column] ?? '') !== $value) {
+                    $rows[$index][$column] = $value;
+                    $changed               = true;
+                }
+            }
+
+            $i++;
+        }
+
+        if ($changed) {
+            carbon_set_post_meta($post_id, 'llf_fields', $rows);
+        }
+
+        if ((string) carbon_get_post_meta($post_id, 'llf_submit_translation_key') !== $submitKey) {
+            carbon_set_post_meta($post_id, 'llf_submit_translation_key', $submitKey);
+        }
+
+        if ((string) carbon_get_post_meta($post_id, 'llf_submit_translation_key_auto') !== $submitKeyAuto) {
+            carbon_set_post_meta($post_id, 'llf_submit_translation_key_auto', $submitKeyAuto);
+        }
+    }
+
+    /** Wording on the submit button when a form does not set its own. */
+    public static function defaultSubmitLabel(): string
+    {
+        return __('Send', 'lonsda-light-form');
+    }
+
+    /** The key a field's label gets when nobody has chosen one. */
+    public static function generatedFieldKey(string $name): string
+    {
+        return 'field_' . $name . '_label';
+    }
+
+    /** The key a form's submit button gets when nobody has chosen one. */
+    public static function generatedSubmitKey(string $slug): string
+    {
+        return 'form_' . ($slug ?: 'form') . '_submit';
+    }
+
+    /**
+     * Decides whether a translation key follows its source or stands on its own.
+     *
+     * A key that still matches what was last generated is one nobody has
+     * touched, so it follows the name and is regenerated. A key that differs
+     * was chosen deliberately and is kept, even when the name later changes —
+     * which is the whole point of recording what was generated. Clearing the
+     * field puts it back under automatic control.
+     *
+     * @return array{0: string, 1: string} The key to use, and the generated
+     *                                     value to remember for next time.
+     */
+    public static function resolveTranslationKey(string $current, string $lastGenerated, string $expected): array
+    {
+        $current = trim($current);
+
+        if ('' === $current || $current === trim($lastGenerated)) {
+            return [$expected, $expected];
+        }
+
+        // Deliberately keeps the old generated value: it is the record of what
+        // this key was compared against, and overwriting it would make a
+        // customised key look untouched the next time the name changes.
+        return [$current, trim($lastGenerated)];
+    }
+
+    /** Wording used when a form does not set its own. */
+    public static function defaultSuccessMessage(): string
+    {
+        return '<p>' . __('Thank you — your message has been sent.', 'lonsda-light-form') . '</p>';
     }
 
     /** True when both reCAPTCHA keys are present. */
@@ -137,9 +271,10 @@ class FormBuilder
      */
     public static function definition(int $post_id): array
     {
-        $rows   = function_exists('carbon_get_post_meta') ? carbon_get_post_meta($post_id, 'llf_fields') : [];
-        $fields = [];
-        $used   = [];
+        $rows      = function_exists('carbon_get_post_meta') ? carbon_get_post_meta($post_id, 'llf_fields') : [];
+        $fields    = [];
+        $used      = [];
+        $writeBack = [];
 
         foreach (is_array($rows) ? $rows : [] as $row) {
             $label = trim((string) ($row['label'] ?? ''));
@@ -179,9 +314,20 @@ class FormBuilder
 
             $checkbox = 'checkbox' === $type;
 
+            [$key, $keyAuto] = self::resolveTranslationKey(
+                (string) ($row['translation_key'] ?? ''),
+                (string) ($row['translation_key_auto'] ?? ''),
+                self::generatedFieldKey($name)
+            );
+
+            // Written back so the editor shows the key the form is actually
+            // using, rather than leaving the box empty and the person guessing.
+            $writeBack[] = ['translation_key' => $key, 'translation_key_auto' => $keyAuto];
+
             $fields[] = [
-                'label'       => $label,
-                'name'        => $name,
+                'label'           => $label,
+                'translation_key' => $key,
+                'name'            => $name,
                 'type'        => $type,
                 // A checkbox has nothing to put a placeholder in, and validation
                 // beyond "must be ticked" has no meaning for one.
@@ -198,11 +344,40 @@ class FormBuilder
             ? (bool) carbon_get_post_meta($post_id, 'llf_recaptcha')
             : false;
 
+        $slug   = sanitize_key(get_post_field('post_name', $post_id) ?: (string) $post_id);
+        $submit = function_exists('carbon_get_post_meta')
+            ? trim((string) carbon_get_post_meta($post_id, 'llf_submit_label'))
+            : '';
+
+        [$submitKey, $submitKeyAuto] = self::resolveTranslationKey(
+            function_exists('carbon_get_post_meta') ? (string) carbon_get_post_meta($post_id, 'llf_submit_translation_key') : '',
+            function_exists('carbon_get_post_meta') ? (string) carbon_get_post_meta($post_id, 'llf_submit_translation_key_auto') : '',
+            self::generatedSubmitKey($slug)
+        );
+
+        self::writeBackKeys($post_id, $writeBack, $submitKey, $submitKeyAuto);
+
+        $success = function_exists('carbon_get_post_meta')
+            ? trim((string) carbon_get_post_meta($post_id, 'llf_success_message'))
+            : '';
+
+        // Carbon Fields falls back to a field's default only when nothing is
+        // stored, and an unticked box stores an empty string rather than
+        // nothing — so this reads true for a form saved before the setting
+        // existed, and false once someone actually switches it off.
+        $hide = function_exists('carbon_get_post_meta')
+            ? (bool) carbon_get_post_meta($post_id, 'llf_hide_on_success')
+            : true;
+
         return [
             'fields'    => $fields,
             // Recorded as off unless it can actually run, so a form cannot claim
             // protection the site is not configured to provide.
-            'recaptcha' => $recaptcha && self::recaptchaConfigured(),
+            'recaptcha'       => $recaptcha && self::recaptchaConfigured(),
+            'success_message' => $success,
+            'hide_on_success' => $hide,
+            'submit_label'    => $submit,
+            'submit_key'      => $submitKey,
         ];
     }
 }

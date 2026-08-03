@@ -22,9 +22,10 @@ class Renderer
     /**
      * @param int   $id   Form id, as stored in the table.
      * @param array $args {
-     *     @type array  $values Values to re-populate with, after a failed submit.
-     *     @type array  $errors Field name => message.
-     *     @type string $notice Message shown above the form.
+     *     @type array  $values  Values to re-populate with, after a failed submit.
+     *     @type array  $errors  Field name => message.
+     *     @type string $notice  Message shown above the form.
+     *     @type bool   $success Whether the submission was accepted.
      * }
      */
     public static function form(int $id, array $args = []): string
@@ -68,6 +69,31 @@ class Renderer
 
         $fields = $form['settings']['fields'] ?? [];
 
+        $success         = !empty($args['success']);
+        $success_message = '';
+
+        if ($success) {
+            $success_message = trim((string) ($form['settings']['success_message'] ?? ''));
+
+            if ('' === $success_message) {
+                $success_message = FormBuilder::defaultSuccessMessage();
+            }
+
+            // Absent means a form saved before the setting existed, which is
+            // the same case the field's default covers: hide it.
+            $hide = !array_key_exists('hide_on_success', $form['settings'])
+                || !empty($form['settings']['hide_on_success']);
+
+            if ($hide) {
+                // Returned without the form, and without the empty-fields check
+                // below: whether the form still has fields has no bearing on
+                // confirming a submission that already happened.
+                return '<div class="llf-form llf-form--sent">'
+                    . '<div class="llf-notice llf-notice--success">' . wp_kses_post($success_message) . '</div>'
+                    . '</div>';
+            }
+        }
+
         if (empty($fields)) {
             return '';
         }
@@ -88,6 +114,14 @@ class Renderer
         $errors = (array) ($args['errors'] ?? []);
         $notice = (string) ($args['notice'] ?? '');
 
+        $submit_label = trim((string) ($form['settings']['submit_label'] ?? ''));
+
+        if ('' === $submit_label) {
+            $submit_label = FormBuilder::defaultSubmitLabel();
+        }
+
+        $submit_label = Strings::get($submit_label, (string) ($form['settings']['submit_key'] ?? ''));
+
         ob_start();
         include LLF_DIR . 'templates/form.php';
 
@@ -104,6 +138,7 @@ class Renderer
     public static function field(array $field, $value = null, string $error = ''): string
     {
         $name  = (string) $field['name'];
+        $label = Strings::get((string) $field['label'], (string) ($field['translation_key'] ?? ''));
         $id    = 'llf-' . $name;
         $type  = (string) $field['type'];
         $req   = !empty($field['required']);
@@ -141,10 +176,10 @@ class Renderer
 
             $out .= '<label for="' . esc_attr($id) . '">';
             $out .= '<input type="checkbox" value="1"' . self::attrs($attrs) . checked($checked, true, false) . '> ';
-            $out .= esc_html($field['label']) . ($req ? ' <span class="llf-required">*</span>' : '');
+            $out .= esc_html($label) . ($req ? ' <span class="llf-required">*</span>' : '');
             $out .= '</label>';
         } else {
-            $out .= '<label for="' . esc_attr($id) . '">' . esc_html($field['label']);
+            $out .= '<label for="' . esc_attr($id) . '">' . esc_html($label);
             $out .= $req ? ' <span class="llf-required">*</span>' : '';
             $out .= '</label>';
 

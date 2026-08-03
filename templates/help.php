@@ -98,6 +98,22 @@ $llf_settings_url    = admin_url('admin.php?page=' . LLF_SLUG . '-settings');
         <?php esc_html_e('Use the id from the Forms list, which is not the same as the id in the address bar when you edit a form. A form is edited as a post and rendered from its own table, so it has both; the Forms list shows the one to use. Giving the wrong one produces a message naming the right one, visible to administrators only.', 'lonsda-light-form'); ?>
     </p>
 
+    <h2><?php esc_html_e('After a submission', 'lonsda-light-form'); ?></h2>
+    <p>
+        <?php esc_html_e('Each form has its own confirmation message, edited on the form itself, and a setting for whether the form is hidden once it has been accepted. Hiding is on by default: leaving a filled-in form on screen under a thank-you reads as though nothing was sent, and invites a second submission. Switch it off to leave the form in place.', 'lonsda-light-form'); ?>
+    </p>
+
+    <h2><?php esc_html_e('Translation keys', 'lonsda-light-form'); ?></h2>
+    <p>
+        <?php esc_html_e('Field labels and the submit button are typed in here rather than living in the plugin, so they cannot be picked up for translation the usual way. Each one carries a key instead.', 'lonsda-light-form'); ?>
+    </p>
+    <p>
+        <?php esc_html_e('A key is filled in from the field name — a field named email gets field_email_label — and keeps in step with it, so renaming the field renames the key. Change a key yourself and it stops following: a key you chose may already be referred to elsewhere, so a later rename must not quietly change it. Clear the box to hand it back.', 'lonsda-light-form'); ?>
+    </p>
+    <p>
+        <?php esc_html_e('The submit button works the same way, keyed from the form slug. Keys are handed to WPML when the form is saved, so a translator sees a string before anyone visits the page it is on.', 'lonsda-light-form'); ?>
+    </p>
+
     <h2><?php esc_html_e('Handling submissions', 'lonsda-light-form'); ?></h2>
     <p>
         <?php esc_html_e('This plugin validates a submission and then hands it on — it does not store or email anything itself. Hook the action below from a theme or a companion plugin to decide what happens:', 'lonsda-light-form'); ?>

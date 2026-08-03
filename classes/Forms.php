@@ -110,8 +110,14 @@ class Forms
 
         global $wpdb;
 
-        $table    = Migrations::tableName();
-        $settings = wp_json_encode(FormBuilder::definition($post_id));
+        $table      = Migrations::tableName();
+        $definition = FormBuilder::definition($post_id);
+        $settings   = wp_json_encode($definition);
+
+        // On save rather than on render: a translator should see a string
+        // before anyone has visited the page it appears on.
+        Strings::register($definition);
+
         $now      = current_time('mysql', true);
         $existing = (int) $wpdb->get_var($wpdb->prepare("SELECT id FROM {$table} WHERE post_id = %d", $post_id));
 
@@ -140,7 +146,7 @@ class Forms
         Logs::add('form', 'Form definition saved.', [
             'post_id' => $post_id,
             'title'   => $post->post_title,
-            'fields'  => count(FormBuilder::definition($post_id)['fields'] ?? []),
+            'fields'  => count($definition['fields'] ?? []),
         ]);
     }
 

@@ -7,6 +7,8 @@
  * @var array  $values
  * @var array  $errors
  * @var string $notice
+ * @var string $success_message
+ * @var string $submit_label
  */
 
 defined('ABSPATH') || exit;
@@ -15,7 +17,11 @@ $llf_id        = (int) $form['id'];
 $llf_recaptcha = !empty($form['settings']['recaptcha']);
 ?>
 <form class="llf-form" method="post" action="">
-    <?php if ('' !== $notice) : ?>
+    <?php if ('' !== $success_message) : ?>
+        <?php // Authored in the editor, so markup is kept — unlike the plain ?>
+        <?php // strings below, which are ours and carry no markup.            ?>
+        <div class="llf-notice llf-notice--success"><?php echo wp_kses_post($success_message); ?></div>
+    <?php elseif ('' !== $notice) : ?>
         <div class="llf-notice"><?php echo esc_html($notice); ?></div>
     <?php endif; ?>
 
@@ -56,6 +62,6 @@ $llf_recaptcha = !empty($form['settings']['recaptcha']);
     <?php endif; ?>
 
     <p class="llf-submit">
-        <button type="submit"><?php esc_html_e('Send', 'lonsda-light-form'); ?></button>
+        <button type="submit"><?php echo esc_html($submit_label); ?></button>
     </p>
 </form>

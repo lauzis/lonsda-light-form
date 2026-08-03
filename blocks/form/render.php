@@ -18,7 +18,12 @@ if ($llf_id < 1) {
 
 $llf_result = \LonsdaLightForm\Submission::result();
 $llf_args   = ($llf_result && (int) $llf_result['form_id'] === $llf_id)
-    ? ['errors' => $llf_result['errors'], 'values' => $llf_result['values'], 'notice' => $llf_result['notice']]
+    ? [
+        'errors'  => $llf_result['errors'],
+        'values'  => $llf_result['values'],
+        'notice'  => $llf_result['notice'],
+        'success' => !empty($llf_result['success']),
+    ]
     : [];
 
 $llf_markup = \LonsdaLightForm\Renderer::form($llf_id, $llf_args);

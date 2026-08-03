@@ -30,7 +30,12 @@ class Shortcode
         // redisplays with its errors and the visitor's answers intact.
         $result = Submission::result();
         $args   = ($result && (int) $result['form_id'] === $id)
-            ? ['errors' => $result['errors'], 'values' => $result['values'], 'notice' => $result['notice']]
+            ? [
+                'errors'  => $result['errors'],
+                'values'  => $result['values'],
+                'notice'  => $result['notice'],
+                'success' => !empty($result['success']),
+            ]
             : [];
 
         return Renderer::form($id, $args);

@@ -55,6 +55,48 @@ same reason. The editor lists forms over the post REST API, which knows only
 post ids, so without it the block would hand a post id to a lookup keyed by the
 form id.
 
+## After a submission
+
+Each form carries its own confirmation wording, edited in the visual editor, and
+a **Hide the form after submission** setting that is on by default — leaving a
+filled-in form under a "thank you" reads as though nothing was sent and invites
+a second submission. Switch it off to leave the form in place.
+
+A form saved before these settings existed has neither stored. Both fall back to
+the shipped default, so the behaviour is the same as if the defaults had been
+chosen deliberately.
+
+## Translating a form's own wording
+
+Labels, the submit button and the confirmation are typed into the editor, so
+they are not in the `.pot` file and gettext cannot reach them. Each string
+carries a translation key instead.
+
+Keys are generated from the field name — a field named `email` gets
+`field_email_label` — and stay in step with it. Rename the field and the key
+follows.
+
+Edit a key and it stops following. That is the point: a key you chose is a key
+something else may already refer to, so renaming the field must not silently
+change it. The plugin can tell the two apart because it records what it last
+generated alongside the key; a key that still matches that record is one nobody
+has touched. Clearing the box hands it back to automatic.
+
+The submit button works the same way, keyed from the form slug as
+`form_{slug}_submit`, and its wording is editable per form.
+
+```
+name: email        →  field_email_label        follows the name
+name: email        →  contact_email            edited, so left alone
+rename to mail     →  contact_email            still left alone
+clear the box      →  field_mail_label         back under automatic control
+```
+
+Strings are registered with WPML when a form is saved, rather than when one is
+rendered — a translator should see a string before anyone has visited the page
+it appears on. Any other translation system can hook `lonsda_form_string`, which
+receives the text, its key and the context.
+
 ## Handling submissions
 
 The plugin validates a submission and then hands it on. It does not store or

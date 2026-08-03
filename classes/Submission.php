@@ -36,7 +36,7 @@ class Submission
      */
     public const FILTER_VALIDATE = 'lonsda_form_validate';
 
-    /** @var array{form_id:int,errors:array,values:array,notice:string}|null */
+    /** @var array{form_id:int,errors:array,values:array,notice:string,success:bool}|null */
     private static $result = null;
 
     public static function init(): void
@@ -73,6 +73,7 @@ class Submission
                 'errors'  => [],
                 'values'  => [],
                 'notice'  => __('That form had expired. Please try again.', 'lonsda-light-form'),
+                'success' => false,
             ];
 
             Logs::add('submission', 'Rejected: the nonce did not verify.', ['form' => $form_id]);
@@ -115,6 +116,7 @@ class Submission
                 'errors'  => [],
                 'values'  => $values,
                 'notice'  => __('Your message could not be sent. Please try again.', 'lonsda-light-form'),
+                'success' => false,
             ];
 
             return;
@@ -146,6 +148,7 @@ class Submission
                 'errors'  => $errors,
                 'values'  => $values,
                 'notice'  => __('Please check the highlighted fields.', 'lonsda-light-form'),
+                'success' => false,
             ];
 
             return;
@@ -159,7 +162,11 @@ class Submission
             'form_id' => $form_id,
             'errors'  => [],
             'values'  => [],
+            // Wording lives on the form and is resolved by the renderer, which
+            // is the only place that has the form definition to hand. This is
+            // the fallback for anything reading the result directly.
             'notice'  => __('Thank you — your message has been sent.', 'lonsda-light-form'),
+            'success' => true,
         ];
     }
 

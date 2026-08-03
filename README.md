@@ -286,7 +286,11 @@ minimum, is refused. Neither response says which check it tripped — that only
 helps the next attempt. Both are configurable under Settings.
 
 **reCAPTCHA v2** is offered per form, but only once both keys are filled in
-under Settings. Until then the option is hidden rather than shown-and-broken: an
+under Settings. Whether it can run is decided when the form is rendered and
+again when a submission is validated, not when the form was saved — the keys are
+a site setting that changes independently, and a form saved before they existed
+would otherwise stay recorded as not using reCAPTCHA until someone happened to
+re-save it. Until then the option is hidden rather than shown-and-broken: an
 option that cannot work invites someone to switch it on and assume they are
 protected. A form also records reCAPTCHA as off if the keys are later removed,
 so it cannot claim protection the site is not configured to provide.
@@ -400,6 +404,16 @@ Schema changes are registered against the version that introduced them and
 applied once each, in version order, by the shared migration runner. A fresh
 install records the current version on activation instead of replaying the
 history against an empty database.
+
+They run on `init` at priority 20, not on `plugins_loaded`. Carbon Fields
+registers its fields on `init` at priority 0, and anything that rebuilds a form
+definition has to be able to read them — reading earlier returns nothing, which
+is indistinguishable from a form with no fields.
+
+Nothing writes a definition unless `FormBuilder::ready()` confirms the fields
+are registered. Writing an empty definition over a good one destroys the form
+while leaving the post it was built from untouched, which looks like data loss
+and is not — but the form stops rendering all the same.
 
 ## Development
 

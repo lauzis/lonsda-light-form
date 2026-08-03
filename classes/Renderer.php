@@ -98,7 +98,7 @@ class Renderer
             return '';
         }
 
-        if (!empty($form['settings']['recaptcha'])) {
+        if (FormBuilder::recaptchaActive($form['settings'] ?? [])) {
             // Enqueued only when a rendered form actually needs it, rather than
             // on every page of the site.
             wp_enqueue_script(

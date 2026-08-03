@@ -14,7 +14,7 @@
 defined('ABSPATH') || exit;
 
 $llf_id        = (int) $form['id'];
-$llf_recaptcha = !empty($form['settings']['recaptcha']);
+$llf_recaptcha = \LonsdaLightForm\FormBuilder::recaptchaActive($form['settings'] ?? []);
 ?>
 <form class="llf-form" method="post" action="">
     <?php if ('' !== $success_message) : ?>

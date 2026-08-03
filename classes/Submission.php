@@ -146,7 +146,7 @@ class Submission
             return;
         }
 
-        if (!empty($form['settings']['recaptcha']) && !self::recaptchaPassed()) {
+        if (FormBuilder::recaptchaActive($form['settings'] ?? []) && !self::recaptchaPassed()) {
             $errors['_recaptcha'] = __('Please confirm you are not a robot.', 'lonsda-light-form');
         }
 

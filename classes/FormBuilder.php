@@ -331,6 +331,36 @@ class FormBuilder
         return '<p>' . __('Thank you — your message has been sent.', 'lonsda-light-form') . '</p>';
     }
 
+    /**
+     * Whether the field definitions can be read at all.
+     *
+     * carbon_get_post_meta() exists as soon as the library is loaded, but
+     * answers with nothing until the fields have been registered — so a read
+     * before carbon_fields_register_fields has fired looks like a form with no
+     * fields rather than like a question that cannot yet be answered. Anything
+     * that writes a definition has to check this first.
+     */
+    public static function ready(): bool
+    {
+        return function_exists('carbon_get_post_meta')
+            && function_exists('did_action')
+            && did_action('carbon_fields_register_fields') > 0;
+    }
+
+    /**
+     * Whether a form should actually show a challenge.
+     *
+     * Both halves have to hold: the form asked for it, and the site can provide
+     * it. Asked at render and again at validation rather than stored, so
+     * removing the keys disables it everywhere at once.
+     *
+     * @param array $settings A stored form definition.
+     */
+    public static function recaptchaActive(array $settings): bool
+    {
+        return !empty($settings['recaptcha']) && self::recaptchaConfigured();
+    }
+
     /** True when both reCAPTCHA keys are present. */
     public static function recaptchaConfigured(): bool
     {
@@ -449,9 +479,12 @@ class FormBuilder
 
         return [
             'fields'    => $fields,
-            // Recorded as off unless it can actually run, so a form cannot claim
-            // protection the site is not configured to provide.
-            'recaptcha'       => $recaptcha && self::recaptchaConfigured(),
+            // The form's own intent, not whether it can currently run. Whether
+            // the keys exist is a site setting that changes independently, and
+            // baking it in here left a form that had reCAPTCHA switched on
+            // recorded as not using it until someone happened to re-save it.
+            // recaptchaActive() applies the site half, at the moment it matters.
+            'recaptcha'       => $recaptcha,
             'success_message' => $success,
             'hide_on_success' => $hide,
             'submit_label'    => $submit,

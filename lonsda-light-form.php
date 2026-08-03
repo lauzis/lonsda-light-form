@@ -3,7 +3,7 @@
  * Plugin Name: Lonsda Light Form
  * Plugin URI:  https://github.com/lauzis/lonsda-light-form
  * Description: Lightweight Carbon Fields form builder.
- * Version:     0.10.0
+ * Version:     0.10.1
  * Author:      Aivars Lauzis
  * Text Domain: lonsda-light-form
  * Domain Path: /languages
@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('LLF_VERSION', '0.10.0');
+define('LLF_VERSION', '0.10.1');
 define('LLF_DIR', plugin_dir_path(__FILE__));
 define('LLF_URL', plugin_dir_url(__FILE__));
 define('LLF_SLUG', 'lonsda-light-form');
@@ -147,7 +147,10 @@ add_action('admin_enqueue_scripts', ['\LonsdaLightForm\Admin', 'enqueueSettings'
 
 // Applied on every request, but the runner returns immediately once there is
 // nothing outstanding.
-add_action('plugins_loaded', ['\LonsdaLightForm\Migrations', 'run']);
+// init 20, not plugins_loaded: Carbon Fields registers its fields on init at
+// priority 0, and a migration that rebuilds form definitions has to be able to
+// read them. Running earlier meant reading nothing and writing that back.
+add_action('init', ['\LonsdaLightForm\Migrations', 'run'], 20);
 
 // A fresh install has no data to migrate, so the table is created directly and
 // the history is marked as already applied.

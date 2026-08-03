@@ -108,6 +108,18 @@ class Forms
             return;
         }
 
+        // A definition read before Carbon Fields has registered its fields comes
+        // back empty, and writing that over a good projection destroys the form
+        // while leaving the post it was built from untouched — a failure that
+        // looks like data loss and is not.
+        if (!FormBuilder::ready()) {
+            Logs::error('form', 'Refused to save a definition before Carbon Fields was ready.', [
+                'post_id' => $post_id,
+            ]);
+
+            return;
+        }
+
         global $wpdb;
 
         $table      = Migrations::tableName();

@@ -30,6 +30,7 @@ class Migrations
         // dbDelta adds the column to a table that already exists, so the same
         // definition serves both a new install and an upgrade.
         $runner->add('0.8.0', [self::class, 'createEntriesTable']);
+        $runner->add('0.10.0', [self::class, 'reprojectForms']);
 
         return $runner;
     }
@@ -98,6 +99,41 @@ class Migrations
                 KEY submitted_at (submitted_at)
             ) {$collate};"
         );
+    }
+
+    /**
+     * Rebuilds every form's stored definition from its post.
+     *
+     * Needed once because the projection used to bake in whether reCAPTCHA keys
+     * existed at the moment a form was saved. A site that added its keys later
+     * has forms recorded as not using reCAPTCHA even though the box is ticked,
+     * and nothing short of re-saving each one would have corrected it.
+     *
+     * Harmless to run generally: the projection is derived from the post, so
+     * rebuilding it can only bring it back in step.
+     */
+    public static function reprojectForms()
+    {
+        // Migrations run early and on any request. Returning false leaves the
+        // version unrecorded so the runner tries again later, rather than
+        // rebuilding every form from fields that are not registered yet.
+        if (!FormBuilder::ready()) {
+            return false;
+        }
+
+        $posts = get_posts([
+            'post_type'      => Forms::POST_TYPE,
+            'post_status'    => 'any',
+            'posts_per_page' => -1,
+        ]);
+
+        foreach ($posts as $post) {
+            Forms::syncToTable($post->ID, $post);
+        }
+
+        Logs::add('migration', 'Form definitions rebuilt.', ['forms' => count($posts)]);
+
+        return true;
     }
 
     /** Absolute name of the entries table. */

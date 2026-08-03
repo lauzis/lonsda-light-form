@@ -119,6 +119,55 @@ WPML is consulted first and gettext fills in whatever it has no translation for.
 Anything else can hook `lonsda_form_string`, which receives the text, its key
 and the context.
 
+## Editing a form
+
+The editor is tabbed, because the field list is what gets worked on repeatedly
+and everything else was pushing it off the screen.
+
+| Tab | What is on it |
+| --- | --- |
+| Fields | The inputs, collapsed to a list of labels so a long form stays readable. |
+| Submit button | Button wording and its translation key. |
+| Confirmation | The message shown after a submission, and whether the form is hidden. |
+| Notifications | Who gets emailed, and whether entries are kept. |
+| Protection | reCAPTCHA, when it is configured. |
+
+## Entries
+
+Submissions are stored in `{prefix}llf_entries` and listed under **Lonsda Forms
+→ Entries**: filter by form, expand one to see every answer plus the page,
+language, IP and user agent, delete individually, or download the lot as CSV.
+
+Keeping them is on by default. A notification that never arrives is otherwise a
+lost enquiry, and mail is the part most likely to break quietly. It can be
+switched off per form on the Notifications tab.
+
+An entry stores each field's **label and type alongside its value**, rather than
+a reference back to the form. Fields get renamed, retyped and deleted; an entry
+has to stay readable as what was actually asked and answered at the time. The
+form title is stored for the same reason — entries outlive the form that
+collected them, and still say where they came from.
+
+## Notifications
+
+Set recipients on a form's Notifications tab. Nothing is sent until one is
+named: defaulting to the site admin would start mailing whoever installed the
+plugin the moment a form went live, which is a decision to make rather than
+inherit.
+
+- Several addresses, separated by commas. Anything that is not an address is
+  dropped rather than handed to `wp_mail()`, where one bad entry can lose the
+  whole send.
+- The subject defaults to `New submission: <form title>`; `{form_title}` and
+  `{site_name}` are replaced.
+- Naming a field in **Reply-To field** makes replies go to whoever submitted it.
+- The message is plain text — it is read, not designed, and plain text cannot
+  render wrongly or be held back as suspicious markup.
+
+Both sending and storing are listeners on `lonsda_form_submitted`, with no more
+access than a theme doing the same job. `lonsda_form_notification` filters the
+mail before it goes; returning an empty array sends nothing.
+
 ## Handling submissions
 
 The plugin validates a submission and then hands it on. It does not store or

@@ -101,6 +101,14 @@ $llf_settings_url    = admin_url('admin.php?page=' . LLF_SLUG . '-settings');
         <?php esc_html_e('Use the id from the Forms list, which is not the same as the id in the address bar when you edit a form. A form is edited as a post and rendered from its own table, so it has both; the Forms list shows the one to use. Giving the wrong one produces a message naming the right one, visible to administrators only.', 'lonsda-light-form'); ?>
     </p>
 
+    <h2><?php esc_html_e('Entries and notifications', 'lonsda-light-form'); ?></h2>
+    <p>
+        <?php esc_html_e('Submissions are kept in the database and listed under Entries, where they can be filtered by form, opened to see every answer with the page, language and IP address, deleted, or downloaded as CSV. Keeping them is on by default: a notification that never arrives is otherwise a lost enquiry, and mail is the part most likely to break quietly.', 'lonsda-light-form'); ?>
+    </p>
+    <p>
+        <?php esc_html_e('Notification recipients are set per form on its Notifications tab. Nothing is sent until an address is named — the site admin address is not assumed, so a new form does not start mailing anyone by itself. Naming a field in Reply-To makes replies go to whoever submitted the form. An entry keeps each label and type next to its value, so it stays readable after the form has been changed.', 'lonsda-light-form'); ?>
+    </p>
+
     <h2><?php esc_html_e('After a submission', 'lonsda-light-form'); ?></h2>
     <p>
         <?php esc_html_e('Each form has its own confirmation message, edited on the form itself, and a setting for whether the form is hidden once it has been accepted. Hiding is on by default: leaving a filled-in form on screen under a thank-you reads as though nothing was sent, and invites a second submission. Switch it off to leave the form in place.', 'lonsda-light-form'); ?>

@@ -148,6 +148,57 @@ class Admin
         exit;
     }
 
+    /** Handles the entries CSV download and entry deletion. */
+    public static function handleEntryActions(): void
+    {
+        if (!isset($_GET['page'], $_GET['llf_action']) || LLF_SLUG . '-entries' !== $_GET['page']) {
+            return;
+        }
+
+        if (!current_user_can('manage_options')) {
+            wp_die(esc_html__('You are not allowed to manage entries.', 'lonsda-light-form'));
+        }
+
+        check_admin_referer('llf-entries');
+
+        $action  = sanitize_key(wp_unslash($_GET['llf_action']));
+        $form_id = isset($_GET['llf_form']) ? (int) $_GET['llf_form'] : 0;
+
+        if ('csv' === $action) {
+            $body = \LonsdaLightForm\Entries::csv($form_id);
+
+            nocache_headers();
+            header('Content-Type: text/csv; charset=utf-8');
+            header('Content-Disposition: attachment; filename="lonsda-entries-' . gmdate('Y-m-d') . '.csv"');
+            header('Content-Length: ' . strlen($body));
+
+            echo $body; // phpcs:ignore WordPress.Security.EscapeOutput -- CSV, not markup.
+            exit;
+        }
+
+        if ('delete' === $action) {
+            \LonsdaLightForm\Entries::delete(isset($_GET['llf_entry']) ? (int) $_GET['llf_entry'] : 0);
+
+            wp_safe_redirect(
+                add_query_arg(
+                    ['llf_done' => 1, 'llf_form' => $form_id],
+                    admin_url('admin.php?page=' . LLF_SLUG . '-entries')
+                )
+            );
+            exit;
+        }
+    }
+
+    /** Renders the entries page. */
+    public static function renderEntries(): void
+    {
+        if (!current_user_can('manage_options')) {
+            return;
+        }
+
+        require LLF_DIR . 'templates/entries.php';
+    }
+
     /** Renders the translations page. */
     public static function renderTranslations(): void
     {

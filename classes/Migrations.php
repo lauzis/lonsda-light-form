@@ -26,6 +26,7 @@ class Migrations
         ]);
 
         $runner->add('0.2.0', [self::class, 'createFormsTable']);
+        $runner->add('0.7.0', [self::class, 'createEntriesTable']);
 
         return $runner;
     }
@@ -50,12 +51,56 @@ class Migrations
     public static function activate(): void
     {
         self::createFormsTable();
+        self::createEntriesTable();
 
         $runner = self::runner();
 
         if ($runner) {
             $runner->baseline();
         }
+    }
+
+    /**
+     * Stored submissions.
+     *
+     * The answers are kept as JSON with each field's label and type alongside
+     * its value, rather than as a reference to the form. A form's fields get
+     * renamed and removed; an entry has to stay readable as what was actually
+     * asked and answered at the time.
+     */
+    public static function createEntriesTable(): void
+    {
+        global $wpdb;
+
+        require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+
+        $table   = self::entriesTableName();
+        $collate = $wpdb->get_charset_collate();
+
+        dbDelta(
+            "CREATE TABLE {$table} (
+                id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+                form_id bigint(20) unsigned NOT NULL DEFAULT 0,
+                form_title varchar(255) NOT NULL DEFAULT '',
+                post_id bigint(20) unsigned NULL DEFAULT NULL,
+                language varchar(20) NOT NULL DEFAULT '',
+                ip varchar(100) NOT NULL DEFAULT '',
+                user_agent varchar(255) NOT NULL DEFAULT '',
+                data longtext NOT NULL,
+                submitted_at datetime NOT NULL DEFAULT '0000-00-00 00:00:00',
+                PRIMARY KEY  (id),
+                KEY form_id (form_id),
+                KEY submitted_at (submitted_at)
+            ) {$collate};"
+        );
+    }
+
+    /** Absolute name of the entries table. */
+    public static function entriesTableName(): string
+    {
+        global $wpdb;
+
+        return $wpdb->prefix . 'llf_entries';
     }
 
     /** Absolute table name, including the site's prefix. */

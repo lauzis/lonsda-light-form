@@ -3,7 +3,7 @@
  * Plugin Name: Lonsda Light Form
  * Plugin URI:  https://github.com/lauzis/lonsda-light-form
  * Description: Lightweight Carbon Fields form builder.
- * Version:     0.6.0
+ * Version:     0.7.0
  * Author:      Aivars Lauzis
  * Text Domain: lonsda-light-form
  * Domain Path: /languages
@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('LLF_VERSION', '0.6.0');
+define('LLF_VERSION', '0.7.0');
 define('LLF_DIR', plugin_dir_path(__FILE__));
 define('LLF_URL', plugin_dir_url(__FILE__));
 define('LLF_SLUG', 'lonsda-light-form');
@@ -85,6 +85,15 @@ add_action('admin_menu', static function (): void {
 
     add_submenu_page(
         LLF_SLUG,
+        __('Entries', 'lonsda-light-form'),
+        __('Entries', 'lonsda-light-form'),
+        'manage_options',
+        LLF_SLUG . '-entries',
+        ['\LonsdaLightForm\Admin', 'renderEntries']
+    );
+
+    add_submenu_page(
+        LLF_SLUG,
         __('Translations', 'lonsda-light-form'),
         __('Translations', 'lonsda-light-form'),
         'manage_options',
@@ -113,8 +122,11 @@ add_action('admin_menu', static function (): void {
 
 add_action('init', ['\LonsdaLightForm\Admin', 'init']);
 add_action('admin_init', ['\LonsdaLightForm\Admin', 'handleTranslationActions']);
+add_action('admin_init', ['\LonsdaLightForm\Admin', 'handleEntryActions']);
 
 \LonsdaLightForm\Translations::init();
+\LonsdaLightForm\Entries::init();
+\LonsdaLightForm\Notifications::init();
 \LonsdaLightForm\Forms::init();
 \LonsdaLightForm\FormBuilder::init();
 \LonsdaLightForm\Submission::init();

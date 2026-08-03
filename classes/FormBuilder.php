@@ -39,7 +39,7 @@ class FormBuilder
             return;
         }
 
-        $fields = [
+        $fieldsTab = [
             Field::make('complex', 'llf_fields', __('Fields', 'lonsda-light-form'))
                 ->set_help_text(__('The inputs this form asks for, in the order they appear.', 'lonsda-light-form'))
                 ->add_fields([
@@ -102,49 +102,84 @@ class FormBuilder
                     // "someone chose this key, so leave it alone".
                     Field::make('hidden', 'translation_key_auto'),
                 ])
+                // Collapsed, so a form with a dozen fields opens as a list of
+                // labels rather than a wall of inputs. The header template is
+                // what makes that readable.
+                ->set_collapsed(true)
                 ->set_header_template('<%- label || "Field" %>'),
         ];
 
         // Offered only when reCAPTCHA is actually configured. An option that
         // cannot work is worse than an absent one — it invites someone to turn
         // it on and assume they are protected.
-        if (self::recaptchaConfigured()) {
-            $fields[] = Field::make('checkbox', 'llf_recaptcha', __('Protect with reCAPTCHA', 'lonsda-light-form'))
-                ->set_help_text(__('Adds a Google reCAPTCHA v2 challenge to this form, using the keys from Settings.', 'lonsda-light-form'));
-        } else {
-            $fields[] = Field::make('html', 'llf_recaptcha_note')
-                ->set_html(
-                    '<p class="description">' . sprintf(
-                        /* translators: %s: link to the settings page */
-                        esc_html__('reCAPTCHA can be switched on per form once both keys are filled in under %s.', 'lonsda-light-form'),
-                        '<a href="' . esc_url(admin_url('admin.php?page=' . LLF_SLUG . '-settings')) . '">' . esc_html__('Settings', 'lonsda-light-form') . '</a>'
-                    ) . '</p>'
-                );
-        }
+        $protectionTab = self::recaptchaConfigured()
+            ? [
+                Field::make('checkbox', 'llf_recaptcha', __('Protect with reCAPTCHA', 'lonsda-light-form'))
+                    ->set_help_text(__('Adds a Google reCAPTCHA v2 challenge to this form, using the keys from Settings.', 'lonsda-light-form')),
+            ]
+            : [
+                Field::make('html', 'llf_recaptcha_note')
+                    ->set_html(
+                        '<p class="description">' . sprintf(
+                            /* translators: %s: link to the settings page */
+                            esc_html__('reCAPTCHA can be switched on per form once both keys are filled in under %s.', 'lonsda-light-form'),
+                            '<a href="' . esc_url(admin_url('admin.php?page=' . LLF_SLUG . '-settings')) . '">' . esc_html__('Settings', 'lonsda-light-form') . '</a>'
+                        ) . '</p>'
+                    ),
+            ];
 
-        $fields[] = Field::make('text', 'llf_submit_label', __('Submit button text', 'lonsda-light-form'))
-            ->set_default_value(self::defaultSubmitLabel())
-            ->set_help_text(__('Wording on the button. Leave empty for the default.', 'lonsda-light-form'));
+        $buttonTab = [
+            Field::make('text', 'llf_submit_label', __('Submit button text', 'lonsda-light-form'))
+                ->set_default_value(self::defaultSubmitLabel())
+                ->set_help_text(__('Wording on the button. Leave empty for the default.', 'lonsda-light-form')),
 
-        $fields[] = Field::make('text', 'llf_submit_translation_key', __('Submit button translation key', 'lonsda-light-form'))
-            ->set_help_text(__('Filled in from the form title and kept in step with it, unless you change it. Clear it to go back to the generated one.', 'lonsda-light-form'));
+            Field::make('text', 'llf_submit_translation_key', __('Translation key', 'lonsda-light-form'))
+                ->set_help_text(__('Filled in from the form title and kept in step with it, unless you change it. Clear it to go back to the generated one.', 'lonsda-light-form')),
 
-        $fields[] = Field::make('hidden', 'llf_submit_translation_key_auto');
+            Field::make('hidden', 'llf_submit_translation_key_auto'),
+        ];
 
-        $fields[] = Field::make('rich_text', 'llf_success_message', __('Message after submission', 'lonsda-light-form'))
-            ->set_settings(['media_buttons' => false])
-            ->set_default_value(self::defaultSuccessMessage())
-            ->set_help_text(__('Shown once the form has been accepted. Leave empty to use the default wording.', 'lonsda-light-form'));
+        $confirmationTab = [
+            Field::make('rich_text', 'llf_success_message', __('Message after submission', 'lonsda-light-form'))
+                ->set_settings(['media_buttons' => false])
+                ->set_default_value(self::defaultSuccessMessage())
+                ->set_help_text(__('Shown once the form has been accepted. Leave empty to use the default wording.', 'lonsda-light-form')),
 
-        // Default on: leaving a filled-in form on screen under a "thank you"
-        // reads as though nothing was sent, and invites a second submission.
-        $fields[] = Field::make('checkbox', 'llf_hide_on_success', __('Hide the form after submission', 'lonsda-light-form'))
-            ->set_default_value(true)
-            ->set_help_text(__('Replaces the form with the message above. Switch off to leave the form in place so another submission can be made.', 'lonsda-light-form'));
+            // Default on: leaving a filled-in form on screen under a "thank you"
+            // reads as though nothing was sent, and invites a second submission.
+            Field::make('checkbox', 'llf_hide_on_success', __('Hide the form after submission', 'lonsda-light-form'))
+                ->set_default_value(true)
+                ->set_help_text(__('Replaces the form with the message above. Switch off to leave the form in place so another submission can be made.', 'lonsda-light-form')),
+        ];
+
+        // Tabbed rather than one long column: the field list is what gets
+        // edited repeatedly, and everything else was pushing it off the screen.
+        // Every field is assigned to a tab — Carbon Fields collects any that
+        // are not into a "General" tab of its own, which would look accidental.
+        $notificationsTab = [
+            Field::make('text', 'llf_notify_to', __('Send notifications to', 'lonsda-light-form'))
+                ->set_help_text(__('Email addresses, separated by commas. Leave empty to send nothing — no address is assumed, so a new form does not start mailing anyone by itself.', 'lonsda-light-form')),
+
+            Field::make('text', 'llf_notify_subject', __('Subject', 'lonsda-light-form'))
+                ->set_help_text(__('Leave empty for "New submission: <form title>". {form_title} and {site_name} are replaced.', 'lonsda-light-form')),
+
+            Field::make('text', 'llf_notify_reply_to', __('Reply-To field', 'lonsda-light-form'))
+                ->set_help_text(__('The Name of a field collecting an email address — the notification then replies to whoever submitted it. Leave empty for none.', 'lonsda-light-form')),
+
+            Field::make('separator', 'llf_entries_separator', __('Entries', 'lonsda-light-form')),
+
+            Field::make('checkbox', 'llf_store_entries', __('Keep submissions in the database', 'lonsda-light-form'))
+                ->set_default_value(true)
+                ->set_help_text(__('Listed under Lonsda Forms → Entries. Storing them means a notification that never arrives is not a submission lost.', 'lonsda-light-form')),
+        ];
 
         Container::make('post_meta', __('Form Structure', 'lonsda-light-form'))
             ->where('post_type', '=', Forms::POST_TYPE)
-            ->add_fields($fields);
+            ->add_tab(__('Fields', 'lonsda-light-form'), $fieldsTab)
+            ->add_tab(__('Submit button', 'lonsda-light-form'), $buttonTab)
+            ->add_tab(__('Confirmation', 'lonsda-light-form'), $confirmationTab)
+            ->add_tab(__('Notifications', 'lonsda-light-form'), $notificationsTab)
+            ->add_tab(__('Protection', 'lonsda-light-form'), $protectionTab);
     }
 
     /**
@@ -201,6 +236,14 @@ class FormBuilder
         if ((string) carbon_get_post_meta($post_id, 'llf_submit_translation_key_auto') !== $submitKeyAuto) {
             carbon_set_post_meta($post_id, 'llf_submit_translation_key_auto', $submitKeyAuto);
         }
+    }
+
+    /** A trimmed string from post meta, or '' when Carbon Fields is absent. */
+    private static function meta(int $post_id, string $key): string
+    {
+        return function_exists('carbon_get_post_meta')
+            ? trim((string) carbon_get_post_meta($post_id, $key))
+            : '';
     }
 
     /** Wording on the submit button when a form does not set its own. */
@@ -378,6 +421,12 @@ class FormBuilder
             'hide_on_success' => $hide,
             'submit_label'    => $submit,
             'submit_key'      => $submitKey,
+            'notify_to'       => self::meta($post_id, 'llf_notify_to'),
+            'notify_subject'  => self::meta($post_id, 'llf_notify_subject'),
+            'notify_reply_to' => self::meta($post_id, 'llf_notify_reply_to'),
+            'store_entries'   => function_exists('carbon_get_post_meta')
+                ? (bool) carbon_get_post_meta($post_id, 'llf_store_entries')
+                : true,
         ];
     }
 }

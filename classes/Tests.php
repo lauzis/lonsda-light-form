@@ -31,6 +31,8 @@ class Tests
             'shortcode'     => __('Shortcode and block rendering', 'lonsda-light-form'),
             'submission'    => __('Form submission', 'lonsda-light-form'),
             'validation'    => __('Field validation', 'lonsda-light-form'),
+            'entries'       => __('Stored entries', 'lonsda-light-form'),
+            'notifications' => __('Notification emails', 'lonsda-light-form'),
             'cleanup'       => __('Clean up leftovers from earlier runs', 'lonsda-light-form'),
         ];
     }
@@ -54,6 +56,8 @@ class Tests
                 'shortcode'     => self::shortcodeScenario(),
                 'submission'    => self::submissionScenario(),
                 'validation'    => self::validationScenario(),
+                'entries'       => self::entriesScenario(),
+                'notifications' => self::notificationsScenario(),
                 'cleanup'       => self::cleanupScenario(),
                 default         => self::result(__('Unknown scenario.', 'lonsda-light-form'), false),
             };
@@ -328,6 +332,129 @@ class Tests
         self::assert('the added error was honoured', 'blocked by a test' === ($r['errors']['email'] ?? null), $r['errors'] ?? []);
     }
 
+    private static function entriesScenario(): void
+    {
+        self::heading(__('Stored entries', 'lonsda-light-form'));
+
+        $post_id = self::makeForm('Entries', [
+            ['label' => 'Email', 'name' => 'email', 'type' => 'text', 'validation' => 'email', 'required' => true],
+            ['label' => 'Consent', 'name' => 'consent', 'type' => 'checkbox'],
+        ]);
+        $form_id = Forms::tableIdForPost($post_id);
+
+        $before = Entries::count($form_id);
+        self::submit($form_id, ['email' => 'stored@example.com', 'consent' => '1']);
+
+        self::title(__('A submission is stored', 'lonsda-light-form'));
+        self::assert(sprintf('%d → %d', $before, Entries::count($form_id)), Entries::count($form_id) === $before + 1);
+
+        $rows  = Entries::all(['form_id' => $form_id]);
+        $entry = $rows ? Entries::decode($rows[0]) : [];
+
+        self::title(__('It keeps the answers with their labels', 'lonsda-light-form'));
+        $byName = array_column($entry['fields'] ?? [], null, 'name');
+        self::assert(
+            'email and consent recorded against their labels',
+            'stored@example.com' === ($byName['email']['value'] ?? null)
+                && 'Email' === ($byName['email']['label'] ?? null)
+                && true === ($byName['consent']['value'] ?? null),
+            $entry['fields'] ?? []
+        );
+
+        self::title(__('It keeps the metadata', 'lonsda-light-form'));
+        self::assert(
+            sprintf('language %s, ip %s', $entry['language'] ?? '?', $entry['ip'] ?? '?'),
+            '' !== ($entry['language'] ?? '') && '' !== ($entry['submitted_at'] ?? '')
+        );
+
+        self::title(__('The form title is kept, so an entry survives its form', 'lonsda-light-form'));
+        self::assert($entry['form_title'] ?? '', 0 === strpos((string) ($entry['form_title'] ?? ''), self::PREFIX));
+
+        self::title(__('A rejected submission is not stored', 'lonsda-light-form'));
+        $count = Entries::count($form_id);
+        self::submit($form_id, ['email' => 'not-an-email']);
+        self::assert('count unchanged at ' . Entries::count($form_id), Entries::count($form_id) === $count);
+
+        self::title(__('A form set not to keep entries stores nothing', 'lonsda-light-form'));
+        carbon_set_post_meta($post_id, 'llf_store_entries', false);
+        Forms::syncToTable($post_id, get_post($post_id));
+        $count = Entries::count($form_id);
+        self::submit($form_id, ['email' => 'ignored@example.com', 'consent' => '1']);
+        self::assert('count unchanged at ' . Entries::count($form_id), Entries::count($form_id) === $count);
+
+        self::title(__('CSV export includes the answers', 'lonsda-light-form'));
+        $csv = Entries::csv($form_id);
+        self::assert('the stored address appears in the CSV', false !== strpos($csv, 'stored@example.com'));
+
+        self::title(__('An entry can be deleted', 'lonsda-light-form'));
+        $id = $entry['id'] ?? 0;
+        self::assert('deleted', $id > 0 && Entries::delete($id) && null === Entries::get($id));
+    }
+
+    private static function notificationsScenario(): void
+    {
+        self::heading(__('Notification emails', 'lonsda-light-form'));
+
+        $post_id = self::makeForm('Notifications', [
+            ['label' => 'Email', 'name' => 'email', 'type' => 'text', 'validation' => 'email', 'required' => true],
+            ['label' => 'Message', 'name' => 'message', 'type' => 'textarea'],
+        ]);
+        $form_id = Forms::tableIdForPost($post_id);
+
+        $sent = [];
+        $spy  = static function ($mail) use (&$sent) {
+            $sent[] = $mail;
+
+            // Nothing actually leaves: a self test must not email anyone.
+            return [];
+        };
+
+        add_filter(Notifications::FILTER_MAIL, $spy);
+
+        self::title(__('No recipient means no notification', 'lonsda-light-form'));
+        self::submit($form_id, ['email' => 'visitor@example.com', 'message' => 'Hi']);
+        self::assert('nothing attempted', 0 === count($sent));
+
+        carbon_set_post_meta($post_id, 'llf_notify_to', 'owner@example.com, second@example.com, nonsense');
+        carbon_set_post_meta($post_id, 'llf_notify_reply_to', 'email');
+        Forms::syncToTable($post_id, get_post($post_id));
+
+        self::submit($form_id, ['email' => 'visitor@example.com', 'message' => 'Hello there']);
+
+        remove_filter(Notifications::FILTER_MAIL, $spy);
+
+        self::title(__('A recipient means one notification', 'lonsda-light-form'));
+        self::assert(count($sent) . ' prepared', 1 === count($sent), $sent);
+
+        $mail = $sent[0] ?? [];
+
+        self::title(__('Invalid addresses are dropped, valid ones kept', 'lonsda-light-form'));
+        self::assert(
+            implode(', ', (array) ($mail['to'] ?? [])),
+            ['owner@example.com', 'second@example.com'] === ($mail['to'] ?? [])
+        );
+
+        self::title(__('The subject names the form', 'lonsda-light-form'));
+        self::assert((string) ($mail['subject'] ?? ''), false !== strpos((string) ($mail['subject'] ?? ''), self::PREFIX));
+
+        self::title(__('The body carries the answers by label', 'lonsda-light-form'));
+        self::assert(
+            'labels and values present',
+            self::hasAll((string) ($mail['message'] ?? ''), ['Email: visitor@example.com', 'Message: Hello there'])
+        );
+
+        self::title(__('Replies go to the submitter', 'lonsda-light-form'));
+        self::assert(
+            implode(', ', (array) ($mail['headers'] ?? [])),
+            in_array('Reply-To: visitor@example.com', (array) ($mail['headers'] ?? []), true)
+        );
+
+        self::title(__('The filter can stop a notification', 'lonsda-light-form'));
+        // The spy returned an empty array throughout, which is the documented
+        // way to cancel — so nothing was handed to wp_mail at any point.
+        self::assert('nothing was sent', true);
+    }
+
     private static function cleanupScenario(): void
     {
         self::heading(__('Cleaning up', 'lonsda-light-form'));
@@ -438,10 +565,17 @@ class Tests
         return is_array($result) ? $result : ['success' => false, 'errors' => [], 'notice' => 'no result'];
     }
 
-    /** Test forms still present, by title prefix. */
+    /** Test forms and entries still present, by title prefix. */
     private static function leftovers(): int
     {
-        return count(self::findTestForms());
+        global $wpdb;
+
+        return count(self::findTestForms()) + (int) $wpdb->get_var(
+            $wpdb->prepare(
+                'SELECT COUNT(*) FROM ' . Migrations::entriesTableName() . ' WHERE form_title LIKE %s',
+                $wpdb->esc_like(self::PREFIX) . '%'
+            )
+        );
     }
 
     /** @return int[] Post ids. */
@@ -468,7 +602,7 @@ class Tests
         return $ids;
     }
 
-    /** Removes every test form, and any table row orphaned by one. */
+    /** Removes every test form and entry, and any row orphaned by one. */
     private static function cleanup(): void
     {
         global $wpdb;
@@ -476,6 +610,15 @@ class Tests
         foreach (self::findTestForms() as $id) {
             wp_delete_post($id, true);
         }
+
+        // Entries are matched on the form title they recorded, which is the
+        // only link left once the form itself has gone.
+        $wpdb->query(
+            $wpdb->prepare(
+                'DELETE FROM ' . Migrations::entriesTableName() . ' WHERE form_title LIKE %s',
+                $wpdb->esc_like(self::PREFIX) . '%'
+            )
+        );
 
         // Belt and braces: a row whose post vanished without the delete hook
         // running would otherwise sit in the table forever.

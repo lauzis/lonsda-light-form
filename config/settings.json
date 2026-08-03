@@ -10,9 +10,13 @@
           "type": "text",
           "title": "Recipient Email",
           "default_value": "@callback:llf_admin_email",
-          "attributes": { "type": "email" },
+          "attributes": {
+            "type": "email"
+          },
           "help_text": "Where submissions are delivered. Defaults to the site administration email.",
-          "help_text_args": ["@callback:llf_admin_email"]
+          "help_text_args": [
+            "@callback:llf_admin_email"
+          ]
         },
         {
           "id": "subject_prefix",
@@ -46,8 +50,33 @@
           "type": "text",
           "title": "Minimum time to complete (seconds)",
           "default_value": "3",
-          "attributes": { "type": "number", "min": "0" },
+          "attributes": {
+            "type": "number",
+            "min": "0"
+          },
           "help_text": "Reject submissions sent faster than this. Set to 0 to disable the check."
+        }
+      ]
+    },
+    {
+      "id": "recaptcha",
+      "title": "Google reCAPTCHA v2",
+      "description": "Optional. Fill both keys in to offer reCAPTCHA as a per-form option; leave them blank and the option is hidden, since it could not work anyway.",
+      "fields": [
+        {
+          "id": "recaptcha_site_key",
+          "type": "text",
+          "title": "Site Key",
+          "help_text": "The site key (public key) from your Google reCAPTCHA v2 admin panel."
+        },
+        {
+          "id": "recaptcha_secret_key",
+          "type": "text",
+          "title": "Secret Key",
+          "attributes": {
+            "type": "password"
+          },
+          "help_text": "The secret key (private key). Kept server-side and never rendered into a page."
         }
       ]
     }

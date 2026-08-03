@@ -3,7 +3,7 @@
  * Plugin Name: Lonsda Light Form
  * Plugin URI:  https://github.com/lauzis/lonsda-light-form
  * Description: Lightweight Carbon Fields form builder.
- * Version:     0.1.0
+ * Version:     0.2.0
  * Author:      Aivars Lauzis
  * Text Domain: lonsda-light-form
  * Domain Path: /languages
@@ -63,9 +63,51 @@ add_action('admin_menu', static function (): void {
         'dashicons-feedback',
         82
     );
+
+    add_submenu_page(
+        LLF_SLUG,
+        __('Forms', 'lonsda-light-form'),
+        __('Forms', 'lonsda-light-form'),
+        'manage_options',
+        LLF_SLUG,
+        ['\LonsdaLightForm\Admin', 'render']
+    );
+
+    // Points at the post type's own add screen, so Carbon Fields renders the
+    // structure editor and WordPress handles saving, nonces and capabilities.
+    add_submenu_page(
+        LLF_SLUG,
+        __('Add Form', 'lonsda-light-form'),
+        __('Add Form', 'lonsda-light-form'),
+        'manage_options',
+        'post-new.php?post_type=' . \LonsdaLightForm\Forms::POST_TYPE
+    );
+
+    add_submenu_page(
+        LLF_SLUG,
+        __('Help', 'lonsda-light-form'),
+        __('Help', 'lonsda-light-form'),
+        'manage_options',
+        LLF_SLUG . '-help',
+        ['\LonsdaLightForm\Admin', 'renderHelp']
+    );
 }, 5);
 
 add_action('init', ['\LonsdaLightForm\Admin', 'init']);
+
+\LonsdaLightForm\Forms::init();
+\LonsdaLightForm\FormBuilder::init();
+\LonsdaLightForm\Submission::init();
+\LonsdaLightForm\Shortcode::init();
+\LonsdaLightForm\Block::init();
+
+// Applied on every request, but the runner returns immediately once there is
+// nothing outstanding.
+add_action('plugins_loaded', ['\LonsdaLightForm\Migrations', 'run']);
+
+// A fresh install has no data to migrate, so the table is created directly and
+// the history is marked as already applied.
+register_activation_hook(__FILE__, ['\LonsdaLightForm\Migrations', 'activate']);
 
 add_action('plugins_loaded', static function (): void {
     load_plugin_textdomain('lonsda-light-form', false, dirname(plugin_basename(__FILE__)) . '/languages');

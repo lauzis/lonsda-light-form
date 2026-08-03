@@ -64,22 +64,25 @@ class Admin
         return $issues;
     }
 
-    /** Renders the plugin's main screen. */
+    /** Renders the list of forms. */
     public static function render(): void
     {
         if (!current_user_can('manage_options')) {
             return;
         }
 
-        echo '<div class="wrap">';
-        echo '<h1>' . esc_html__('Lonsda Forms', 'lonsda-light-form') . '</h1>';
-        echo '<p>' . esc_html(
-            sprintf(
-                /* translators: %s: email address */
-                __('Submissions are delivered to %s.', 'lonsda-light-form'),
-                (string) Settings::get('recipient', '')
-            )
-        ) . '</p>';
-        echo '</div>';
+        $forms = Forms::all();
+
+        require LLF_DIR . 'templates/forms.php';
+    }
+
+    /** Renders the help page. */
+    public static function renderHelp(): void
+    {
+        if (!current_user_can('manage_options')) {
+            return;
+        }
+
+        require LLF_DIR . 'templates/help.php';
     }
 }

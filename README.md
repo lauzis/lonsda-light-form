@@ -38,6 +38,23 @@ Either the **Lonsda Form** block, or the shortcode:
 The id is the one shown in the Forms list. Both render at view time rather than
 freezing a copy into post content, so editing a form updates it everywhere.
 
+### Two ids, one of which is the right one
+
+A form is edited as a post and rendered from a row in its own table, so it has a
+post id and a form id. The Forms list, the shortcode and the block all use the
+form id; the post id only ever appears in the address bar while editing.
+
+They are easy to confuse and the failure is silent — a lookup by the wrong id
+simply finds nothing. So a lookup that fails checks whether the id given was a
+form's post id, and if it was, the message names the id that should have been
+used. That message is shown to administrators only; visitors get nothing rather
+than an error printed into the page.
+
+The block reads the form id from an `llf_id` field on the REST response for the
+same reason. The editor lists forms over the post REST API, which knows only
+post ids, so without it the block would hand a post id to a lookup keyed by the
+form id.
+
 ## Handling submissions
 
 The plugin validates a submission and then hands it on. It does not store or

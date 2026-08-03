@@ -94,6 +94,9 @@ $llf_settings_url    = admin_url('admin.php?page=' . LLF_SLUG . '-settings');
     <p>
         <?php esc_html_e('Both render the form at the moment the page is viewed rather than freezing a copy into the content, so editing a form updates it everywhere it appears.', 'lonsda-light-form'); ?>
     </p>
+    <p>
+        <?php esc_html_e('Use the id from the Forms list, which is not the same as the id in the address bar when you edit a form. A form is edited as a post and rendered from its own table, so it has both; the Forms list shows the one to use. Giving the wrong one produces a message naming the right one, visible to administrators only.', 'lonsda-light-form'); ?>
+    </p>
 
     <h2><?php esc_html_e('Handling submissions', 'lonsda-light-form'); ?></h2>
     <p>

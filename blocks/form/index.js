@@ -26,10 +26,18 @@
 
 			var options = [ { label: __( 'Select a form…', 'lonsda-light-form' ), value: 0 } ];
 
+			// llf_id, not form.id: a form is edited as a post but rendered from
+			// the forms table, and the table id is what the shortcode and the
+			// Forms list use. A form saved but not yet projected has no table
+			// id, so it is left out rather than offered as an unusable choice.
 			( forms || [] ).forEach( function ( form ) {
+				if ( ! form.llf_id ) {
+					return;
+				}
+
 				options.push( {
 					label: form.title.rendered || __( '(no title)', 'lonsda-light-form' ),
-					value: form.id,
+					value: form.llf_id,
 				} );
 			} );
 
@@ -47,7 +55,7 @@
 							? __( 'Loading forms…', 'lonsda-light-form' )
 							: __( 'Pick the form to show here. Its fields are edited under Lonsda Forms, so changes appear everywhere it is used.', 'lonsda-light-form' ),
 					},
-					forms !== null && forms.length === 0
+					forms !== null && options.length === 1
 						? el( 'p', {}, __( 'No forms yet — create one under Lonsda Forms first.', 'lonsda-light-form' ) )
 						: el( components.SelectControl, {
 							label: __( 'Form', 'lonsda-light-form' ),

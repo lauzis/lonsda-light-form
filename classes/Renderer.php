@@ -32,13 +32,38 @@ class Renderer
         $form = Forms::get($id);
 
         if (!$form) {
-            // Deliberately quiet on the front end: a mistyped id in a shortcode
-            // should not print an error into someone's page.
-            Logs::error('render', 'A form was requested that does not exist.', ['id' => $id]);
+            // A form has two identifiers — the post it is edited as, and its
+            // row in this table — and the id given is far more likely to be the
+            // wrong one than to be invented. Worth resolving, because "no form
+            // with id 45606" gives whoever reads it nothing to act on.
+            $actual = Forms::tableIdForPost($id);
 
-            return current_user_can('manage_options')
-                ? '<p><em>' . esc_html(sprintf(__('Lonsda: no form with id %d.', 'lonsda-light-form'), $id)) . '</em></p>'
-                : '';
+            Logs::error('render', 'A form was requested that does not exist.', [
+                'id'              => $id,
+                'is_a_form_post'  => $actual > 0,
+                'correct_id'      => $actual ?: null,
+            ]);
+
+            if (!current_user_can('manage_options')) {
+                // Deliberately quiet on the front end: a mistyped id should not
+                // print an error into a visitor's page.
+                return '';
+            }
+
+            $message = $actual > 0
+                ? sprintf(
+                    /* translators: 1: id that was used, 2: id that should be used */
+                    __('Lonsda: %1$d is the post id of a form, not its form id. Use %2$d instead — the id shown in the Forms list.', 'lonsda-light-form'),
+                    $id,
+                    $actual
+                )
+                : sprintf(
+                    /* translators: %d: form id */
+                    __('Lonsda: no form with id %d. Check the id in the Forms list.', 'lonsda-light-form'),
+                    $id
+                );
+
+            return '<p><em>' . esc_html($message) . '</em></p>';
         }
 
         $fields = $form['settings']['fields'] ?? [];

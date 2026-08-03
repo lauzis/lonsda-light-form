@@ -22,8 +22,48 @@ class Forms
     public static function init(): void
     {
         add_action('init', [self::class, 'registerPostType']);
+        add_action('rest_api_init', [self::class, 'registerRestFields']);
         add_action('save_post_' . self::POST_TYPE, [self::class, 'syncToTable'], 20, 2);
         add_action('before_delete_post', [self::class, 'removeFromTable']);
+    }
+
+    /**
+     * Exposes the table id on the REST response.
+     *
+     * A form has two identifiers: the post it is edited as, and its row in the
+     * forms table. The table id is the one the Forms list shows and the one the
+     * shortcode takes, so it is the one a person is told to use — but the
+     * editor lists forms over the post REST API, which knows only post ids.
+     * Without this the block would quietly hand a post id to a lookup keyed by
+     * the table id and find nothing.
+     */
+    public static function registerRestFields(): void
+    {
+        register_rest_field(self::POST_TYPE, 'llf_id', [
+            'get_callback' => static function ($post) {
+                return self::tableIdForPost((int) ($post['id'] ?? 0));
+            },
+            'schema' => [
+                'description' => __('Identifier used by the shortcode and block.', 'lonsda-light-form'),
+                'type'        => 'integer',
+                'context'     => ['view', 'edit'],
+                'readonly'    => true,
+            ],
+        ]);
+    }
+
+    /** The forms-table id for a post, or 0 when it has not been projected yet. */
+    public static function tableIdForPost(int $postId): int
+    {
+        global $wpdb;
+
+        if ($postId < 1) {
+            return 0;
+        }
+
+        return (int) $wpdb->get_var(
+            $wpdb->prepare('SELECT id FROM ' . Migrations::tableName() . ' WHERE post_id = %d', $postId)
+        );
     }
 
     public static function registerPostType(): void

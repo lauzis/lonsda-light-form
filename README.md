@@ -150,6 +150,28 @@ The same filter adds keys of your own. Note that a submission rejected for a
 failed nonce or a tripped spam check does not reach either hook at all — it is
 logged and dropped.
 
+## Self tests
+
+**Lonsda Forms → Self Tests** runs the plugin against the site it is installed
+on: the real database, the real post type, the real submission handler. That is
+deliberate. The failures worth finding are the ones a fixture cannot reproduce —
+a table the migration never created, another plugin filtering the post query, a
+capability that is not what anyone assumed.
+
+| Scenario | Covers |
+| --- | --- |
+| Form creation and storage | The post, its projection into the table, both identifiers, editing, deletion. |
+| Shortcode and block rendering | Both render paths, the nonce and honeypot, and the message shown when a post id is given instead of a form id. |
+| Form submission | Acceptance, the hook and its arguments, the metadata, a stale nonce, a filled honeypot, the confirmation. |
+| Field validation | Required, email, pattern, maximum length, required checkbox, and that the rules hold for a request that never saw the form. |
+| Clean up leftovers | Removes anything an interrupted run left behind. |
+
+Every form a run creates is titled `LLF Self Test — …` and removed afterwards,
+including when a scenario fails or throws: cleanup is in a `finally`, and each
+run starts by clearing leftovers so a stale form is never counted as a fresh
+one. Cleanup also deletes table rows by title, in case a row outlived the post
+that owned it. Nothing else on the site is touched and no email is sent.
+
 ## Spam
 
 Every form carries a hidden honeypot and records when it was opened. A

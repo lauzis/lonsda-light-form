@@ -64,6 +64,18 @@ class Submission
         return self::$result;
     }
 
+    /**
+     * Discards the outcome of the request's submission.
+     *
+     * One request handles one submission, so nothing in normal use needs this.
+     * The self tests do: they post several times in a single request, and a
+     * result left over from the previous one would be read as this one's.
+     */
+    public static function forget(): void
+    {
+        self::$result = null;
+    }
+
     public static function maybeHandle(): void
     {
         if ('POST' !== ($_SERVER['REQUEST_METHOD'] ?? '') || !isset($_POST[Renderer::FIELD_FORM_ID])) {

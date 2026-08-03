@@ -76,6 +76,16 @@ class Admin
         require LLF_DIR . 'templates/forms.php';
     }
 
+    /** Renders the self tests page. */
+    public static function renderTests(): void
+    {
+        if (!current_user_can('manage_options')) {
+            return;
+        }
+
+        require LLF_DIR . 'templates/tests.php';
+    }
+
     /** Renders the help page. */
     public static function renderHelp(): void
     {

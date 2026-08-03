@@ -50,6 +50,11 @@ class Tests
         // this one — a stale form is indistinguishable from one just made.
         self::cleanup();
 
+        // Notifications are prefilled with the site address, so a test form is
+        // a form that would email the administrator. Cancelled at a priority
+        // nothing else uses, so it applies whatever a scenario does first.
+        add_filter(Notifications::FILTER_MAIL, '__return_empty_array', 999);
+
         try {
             match ($scenario) {
                 'form-creation' => self::formCreationScenario(),
@@ -73,6 +78,8 @@ class Tests
                 false
             );
         } finally {
+            remove_filter(Notifications::FILTER_MAIL, '__return_empty_array', 999);
+
             if ('cleanup' !== $scenario) {
                 self::cleanup();
                 self::title(__('Cleanup', 'lonsda-light-form'));
@@ -405,15 +412,27 @@ class Tests
         $spy  = static function ($mail) use (&$sent) {
             $sent[] = $mail;
 
-            // Nothing actually leaves: a self test must not email anyone.
-            return [];
+            // Observes only. run() cancels the send at a later priority, so
+            // nothing a scenario does can put mail on the wire.
+            return $mail;
         };
 
-        add_filter(Notifications::FILTER_MAIL, $spy);
+        add_filter(Notifications::FILTER_MAIL, $spy, 10);
 
-        self::title(__('No recipient means no notification', 'lonsda-light-form'));
+        self::title(__('Clearing the recipient means no notification', 'lonsda-light-form'));
+        // Explicitly emptied: a new form is prefilled with the site address, so
+        // "no recipient" is a choice someone makes rather than the starting
+        // state, and it has to keep working.
+        carbon_set_post_meta($post_id, 'llf_notify_to', '');
+        Forms::syncToTable($post_id, get_post($post_id));
         self::submit($form_id, ['email' => 'visitor@example.com', 'message' => 'Hi']);
         self::assert('nothing attempted', 0 === count($sent));
+
+        self::title(__('A new form is prefilled with the site address', 'lonsda-light-form'));
+        self::assert(
+            FormBuilder::defaultNotifyTo(),
+            '' !== FormBuilder::defaultNotifyTo() && is_email(FormBuilder::defaultNotifyTo())
+        );
 
         carbon_set_post_meta($post_id, 'llf_notify_to', 'owner@example.com, second@example.com, nonsense');
         carbon_set_post_meta($post_id, 'llf_notify_reply_to', 'email');
@@ -421,7 +440,7 @@ class Tests
 
         self::submit($form_id, ['email' => 'visitor@example.com', 'message' => 'Hello there']);
 
-        remove_filter(Notifications::FILTER_MAIL, $spy);
+        remove_filter(Notifications::FILTER_MAIL, $spy, 10);
 
         self::title(__('A recipient means one notification', 'lonsda-light-form'));
         self::assert(count($sent) . ' prepared', 1 === count($sent), $sent);
@@ -434,8 +453,12 @@ class Tests
             ['owner@example.com', 'second@example.com'] === ($mail['to'] ?? [])
         );
 
-        self::title(__('The subject names the form', 'lonsda-light-form'));
-        self::assert((string) ($mail['subject'] ?? ''), false !== strpos((string) ($mail['subject'] ?? ''), self::PREFIX));
+        self::title(__('The subject is the form name, with the placeholder resolved', 'lonsda-light-form'));
+        $subject = (string) ($mail['subject'] ?? '');
+        self::assert(
+            $subject,
+            false !== strpos($subject, self::PREFIX) && false === strpos($subject, '{form_title}')
+        );
 
         self::title(__('The body carries the answers by label', 'lonsda-light-form'));
         self::assert(
@@ -449,10 +472,10 @@ class Tests
             in_array('Reply-To: visitor@example.com', (array) ($mail['headers'] ?? []), true)
         );
 
-        self::title(__('The filter can stop a notification', 'lonsda-light-form'));
-        // The spy returned an empty array throughout, which is the documented
-        // way to cancel — so nothing was handed to wp_mail at any point.
-        self::assert('nothing was sent', true);
+        self::title(__('No mail left this run', 'lonsda-light-form'));
+        // run() cancels every send by returning an empty array, the documented
+        // way to stop one, so a test run cannot email the site administrator.
+        self::assert('every send was cancelled', true);
     }
 
     private static function cleanupScenario(): void

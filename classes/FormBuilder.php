@@ -157,11 +157,25 @@ class FormBuilder
         // Every field is assigned to a tab — Carbon Fields collects any that
         // are not into a "General" tab of its own, which would look accidental.
         $notificationsTab = [
+            // Prefilled rather than assumed at send time: the address is in the
+            // box where it can be read and changed before the form is saved,
+            // instead of a form quietly mailing an address nobody chose.
             Field::make('text', 'llf_notify_to', __('Send notifications to', 'lonsda-light-form'))
-                ->set_help_text(__('Email addresses, separated by commas. Leave empty to send nothing — no address is assumed, so a new form does not start mailing anyone by itself.', 'lonsda-light-form')),
+                ->set_default_value(self::defaultNotifyTo())
+                ->set_help_text(
+                    sprintf(
+                        /* translators: %s: the site's administration email address */
+                        __('Email addresses, separated by commas. Filled in with the site administration address (%s) — change it or clear it to send nothing.', 'lonsda-light-form'),
+                        self::defaultNotifyTo()
+                    )
+                ),
 
+            // {form_title} rather than the title itself: a default is fixed
+            // when the field is registered and has no post to ask, and this way
+            // the subject keeps up with a form that is later renamed.
             Field::make('text', 'llf_notify_subject', __('Subject', 'lonsda-light-form'))
-                ->set_help_text(__('Leave empty for "New submission: <form title>". {form_title} and {site_name} are replaced.', 'lonsda-light-form')),
+                ->set_default_value(self::defaultNotifySubject())
+                ->set_help_text(__('{form_title} and {site_name} are replaced when the mail is sent. Leave empty for "New submission: <form title>".', 'lonsda-light-form')),
 
             Field::make('text', 'llf_notify_reply_to', __('Reply-To field', 'lonsda-light-form'))
                 ->set_help_text(__('The Name of a field collecting an email address — the notification then replies to whoever submitted it. Leave empty for none.', 'lonsda-light-form')),
@@ -244,6 +258,23 @@ class FormBuilder
         return function_exists('carbon_get_post_meta')
             ? trim((string) carbon_get_post_meta($post_id, $key))
             : '';
+    }
+
+    /**
+     * Address a new form's notifications are prefilled with.
+     *
+     * The site administration address from Settings → General, which is the
+     * only contact address WordPress itself keeps.
+     */
+    public static function defaultNotifyTo(): string
+    {
+        return (string) get_option('admin_email', '');
+    }
+
+    /** Subject a new form's notifications are prefilled with. */
+    public static function defaultNotifySubject(): string
+    {
+        return '{form_title}';
     }
 
     /** Wording on the submit button when a form does not set its own. */

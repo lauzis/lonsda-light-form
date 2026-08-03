@@ -150,19 +150,29 @@ collected them, and still say where they came from.
 
 ## Notifications
 
-Set recipients on a form's Notifications tab. Nothing is sent until one is
-named: defaulting to the site admin would start mailing whoever installed the
-plugin the moment a form went live, which is a decision to make rather than
-inherit.
+A new form arrives prefilled: recipients from the site administration address
+(Settings → General, the only contact address WordPress itself keeps) and the
+subject as `{form_title}`.
+
+Prefilled, not assumed. The address sits in the box where it can be read and
+changed before the form is saved, rather than a form quietly mailing an address
+nobody chose. Clearing the field sends nothing.
 
 - Several addresses, separated by commas. Anything that is not an address is
   dropped rather than handed to `wp_mail()`, where one bad entry can lose the
   whole send.
-- The subject defaults to `New submission: <form title>`; `{form_title}` and
-  `{site_name}` are replaced.
+- `{form_title}` and `{site_name}` are replaced when the mail is sent. The
+  subject is a placeholder rather than the title itself because a default is
+  fixed when the field is registered and has no form to ask — this way it keeps
+  up with a form that is later renamed. An empty subject falls back to
+  `New submission: <form title>`.
 - Naming a field in **Reply-To field** makes replies go to whoever submitted it.
 - The message is plain text — it is read, not designed, and plain text cannot
   render wrongly or be held back as suspicious markup.
+
+Because a test form is now a form that would email the administrator, the self
+tests cancel every send at a priority nothing else uses. A full run makes zero
+`wp_mail()` calls.
 
 Both sending and storing are listeners on `lonsda_form_submitted`, with no more
 access than a theme doing the same job. `lonsda_form_notification` filters the

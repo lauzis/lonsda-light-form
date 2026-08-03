@@ -106,7 +106,7 @@ $llf_settings_url    = admin_url('admin.php?page=' . LLF_SLUG . '-settings');
         <?php esc_html_e('Submissions are kept in the database and listed under Entries, where they can be filtered by form, opened to see every answer with the page, language and IP address, deleted, or downloaded as CSV. Keeping them is on by default: a notification that never arrives is otherwise a lost enquiry, and mail is the part most likely to break quietly.', 'lonsda-light-form'); ?>
     </p>
     <p>
-        <?php esc_html_e('Notification recipients are set per form on its Notifications tab. Nothing is sent until an address is named — the site admin address is not assumed, so a new form does not start mailing anyone by itself. Naming a field in Reply-To makes replies go to whoever submitted the form. An entry keeps each label and type next to its value, so it stays readable after the form has been changed.', 'lonsda-light-form'); ?>
+        <?php esc_html_e('A new form arrives with its Notifications tab prefilled: the site administration address from Settings → General, and the subject {form_title}, which becomes the form name when the mail is sent. Both are ordinary fields — change them, or clear the address to send nothing. Naming a field in Reply-To makes replies go to whoever submitted the form. An entry keeps each label and type next to its value, so it stays readable after the form has been changed.', 'lonsda-light-form'); ?>
     </p>
 
     <h2><?php esc_html_e('After a submission', 'lonsda-light-form'); ?></h2>

@@ -77,6 +77,11 @@
             "type": "password"
           },
           "help_text": "The Secret Key from the same screen. Kept server-side and never rendered into a page — treat it like a password."
+        },
+        {
+          "id": "recaptcha_test",
+          "type": "html",
+          "html": "@callback:llf_recaptcha_test"
         }
       ]
     },

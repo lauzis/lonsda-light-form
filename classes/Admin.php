@@ -299,92 +299,155 @@ class Admin
             </p>
             <p id="llf-import-status" class="description" aria-live="polite"></p>
 
-            <script>
-            ( function () {
-                var all  = document.getElementById( 'llf-export-all' ),
-                    ones = document.querySelectorAll( '.llf-export-one' ),
-                    go   = document.getElementById( 'llf-export-go' ),
-                    base = <?php echo wp_json_encode($export); ?>;
-
-                function chosen() {
-                    return Array.prototype.filter.call( ones, function ( c ) { return c.checked; } )
-                        .map( function ( c ) { return c.value; } );
-                }
-
-                function sync() {
-                    if ( ! go ) { return; }
-                    var picked = chosen();
-                    // No ids means every form, which is also what the plain link
-                    // does — so the button still works with JS switched off.
-                    go.href = picked.length === ones.length
-                        ? base
-                        : base + '&ids=' + encodeURIComponent( picked.join( ',' ) );
-                    go.classList.toggle( 'disabled', picked.length === 0 );
-                }
-
-                if ( all ) {
-                    all.addEventListener( 'change', function () {
-                        Array.prototype.forEach.call( ones, function ( c ) { c.checked = all.checked; } );
-                        sync();
-                    } );
-                }
-
-                Array.prototype.forEach.call( ones, function ( c ) {
-                    c.addEventListener( 'change', function () {
-                        all.checked = chosen().length === ones.length;
-                        sync();
-                    } );
-                } );
-
-                sync();
-
-                var file   = document.getElementById( 'llf-import-file' ),
-                    button = document.getElementById( 'llf-import-go' ),
-                    status = document.getElementById( 'llf-import-status' );
-
-                if ( ! file || ! button ) { return; }
-
-                file.addEventListener( 'change', function () {
-                    button.disabled = ! file.files.length;
-                    status.textContent = '';
-                } );
-
-                button.addEventListener( 'click', function () {
-                    if ( ! file.files.length ) { return; }
-
-                    // Posted on its own rather than with the settings: this
-                    // panel is inside the settings form and cannot be one.
-                    var data = new FormData();
-                    data.append( 'action', 'llf_import' );
-                    data.append( '_wpnonce', <?php echo wp_json_encode(wp_create_nonce('llf-transfer')); ?> );
-                    data.append( 'llf_file', file.files[0] );
-
-                    button.disabled = true;
-                    status.textContent = <?php echo wp_json_encode(__('Importing…', 'lonsda-light-form')); ?>;
-
-                    fetch( <?php echo wp_json_encode($base); ?>, {
-                        method: 'POST',
-                        credentials: 'same-origin',
-                        body: data
-                    } )
-                        .then( function ( r ) { return r.json(); } )
-                        .then( function ( r ) {
-                            status.textContent = r.message || '';
-                            button.disabled = false;
-
-                            if ( r.created ) { window.location.reload(); }
-                        } )
-                        .catch( function () {
-                            status.textContent = <?php echo wp_json_encode(__('The import could not be completed.', 'lonsda-light-form')); ?>;
-                            button.disabled = false;
-                        } );
-                } );
-            } )();
-            </script>
         </div>
         <?php
 
         return (string) ob_get_clean();
+    }
+
+    /**
+     * The reCAPTCHA test on the settings page.
+     *
+     * Shows the real tick box and then verifies the token through the same code
+     * a submission uses. Rendering it proves the site key; verifying the token
+     * proves the secret — and only doing both distinguishes "the box appears"
+     * from "the box actually protects anything".
+     */
+    public static function recaptchaTest(): string
+    {
+        $site = trim((string) \LonsdaLightForm\Settings::get('recaptcha_site_key', ''));
+        $has  = \LonsdaLightForm\FormBuilder::recaptchaConfigured();
+
+        ob_start();
+        ?>
+        <div class="llf-recaptcha-test">
+            <h3><?php esc_html_e('Test the keys', 'lonsda-light-form'); ?></h3>
+
+            <?php if (!$has) : ?>
+                <p class="description">
+                    <?php esc_html_e('Fill both keys in and save, then a working tick box appears here to try.', 'lonsda-light-form'); ?>
+                </p>
+            <?php else : ?>
+                <p class="description">
+                    <?php esc_html_e('This is the real challenge, using the keys above. Tick it and press Test: the box appearing means the Site Key is accepted, and the check that follows means the Secret Key is too. Saving the settings first is necessary — the test reads what is stored, not what is typed.', 'lonsda-light-form'); ?>
+                </p>
+
+                <div id="llf-recaptcha-widget" style="margin:10px 0;"></div>
+
+                <p>
+                    <button type="button" class="button" id="llf-recaptcha-test">
+                        <?php esc_html_e('Test', 'lonsda-light-form'); ?>
+                    </button>
+                </p>
+
+                <p id="llf-recaptcha-status" class="llf-recaptcha-status" aria-live="polite"></p>
+
+                <style>
+                    .llf-recaptcha-status { font-weight: 600; }
+                    .llf-recaptcha-status.llf-ok { color: #00a32a; }
+                    .llf-recaptcha-status.llf-bad { color: #d63638; }
+                </style>
+            <?php endif; ?>
+        </div>
+        <?php
+
+        return (string) ob_get_clean();
+    }
+
+    /** Verifies a token from the settings-page test. */
+    public static function handleRecaptchaTest(): void
+    {
+        if (!current_user_can('manage_options')) {
+            wp_send_json(['success' => false, 'message' => __('You are not allowed to do that.', 'lonsda-light-form')], 403);
+        }
+
+        check_admin_referer('llf-transfer');
+
+        $token  = isset($_POST['token']) ? sanitize_text_field(wp_unslash($_POST['token'])) : '';
+        $result = \LonsdaLightForm\Submission::verifyRecaptcha($token);
+
+        if ($result['success']) {
+            wp_send_json([
+                'success' => true,
+                'message' => __('Both keys work. Google accepted the challenge.', 'lonsda-light-form'),
+            ]);
+        }
+
+        if ($result['unreachable']) {
+            wp_send_json([
+                'success' => false,
+                'message' => __('Google could not be reached, so the keys could not be checked. Forms accept submissions during an outage rather than turning everyone away.', 'lonsda-light-form'),
+            ]);
+        }
+
+        $codes   = $result['errors'];
+        $message = __('Google rejected the challenge.', 'lonsda-light-form');
+
+        if (in_array('invalid-input-secret', $codes, true)) {
+            $message = __('The Secret Key is not valid. Check it against the reCAPTCHA console — it is easy to paste the Site Key into both boxes.', 'lonsda-light-form');
+        } elseif (in_array('missing-input-secret', $codes, true)) {
+            $message = __('No Secret Key is saved.', 'lonsda-light-form');
+        } elseif (in_array('timeout-or-duplicate', $codes, true)) {
+            $message = __('That challenge had already been used or had expired. Tick the box again.', 'lonsda-light-form');
+        }
+
+        if ($codes) {
+            $message .= ' (' . implode(', ', $codes) . ')';
+        }
+
+        wp_send_json(['success' => false, 'message' => $message]);
+    }
+
+    /**
+     * Loads the settings page's own script.
+     *
+     * Needed because Carbon Fields renders html fields through React, which
+     * inserts markup without running any script inside it — so the panels this
+     * drives cannot carry their own.
+     */
+    public static function enqueueSettings(string $hook): void
+    {
+        if (!isset($_GET['page']) || LLF_SLUG . '-settings' !== $_GET['page']) {
+            return;
+        }
+
+        $site = trim((string) \LonsdaLightForm\Settings::get('recaptcha_site_key', ''));
+
+        wp_enqueue_script(
+            'llf-settings',
+            LLF_URL . 'assets/js/settings.js',
+            [],
+            LLF_VERSION,
+            true
+        );
+
+        wp_localize_script('llf-settings', 'LLFSettings', [
+            'postUrl'   => admin_url('admin-post.php'),
+            'exportUrl' => wp_nonce_url(add_query_arg('action', 'llf_export', admin_url('admin-post.php')), 'llf-transfer'),
+            'nonce'     => wp_create_nonce('llf-transfer'),
+            'siteKey'   => \LonsdaLightForm\FormBuilder::recaptchaConfigured() ? $site : '',
+            'i18n'      => [
+                'importing'    => __('Importing…', 'lonsda-light-form'),
+                'importFailed' => __('The import could not be completed.', 'lonsda-light-form'),
+                'checking'     => __('Checking with Google…', 'lonsda-light-form'),
+                'tickFirst'    => __('Tick the box first.', 'lonsda-light-form'),
+                'badSiteKey'   => __('Google refused to show the challenge, which usually means the Site Key is wrong or this domain is not registered against it.', 'lonsda-light-form'),
+                'scriptFailed' => __('Google\'s script did not load, so the challenge cannot be shown.', 'lonsda-light-form'),
+                'testFailed'   => __('The test could not be completed.', 'lonsda-light-form'),
+            ],
+        ]);
+
+        if (\LonsdaLightForm\FormBuilder::recaptchaConfigured()) {
+            // Explicit rendering, because the tick box is mounted by React
+            // after Google's script has finished scanning the page.
+            wp_enqueue_script(
+                'llf-recaptcha',
+                'https://www.google.com/recaptcha/api.js?render=explicit&onload=llfRecaptchaReady',
+                ['llf-settings'],
+                null,
+                true
+            );
+        }
     }
 
     /** Sends the export file. */

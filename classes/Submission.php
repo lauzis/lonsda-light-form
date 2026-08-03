@@ -275,11 +275,39 @@ class Submission
     /** Verifies the reCAPTCHA response with Google. */
     private static function recaptchaPassed(): bool
     {
-        $secret = trim((string) Settings::get('recaptcha_secret_key', ''));
         $token  = isset($_POST['g-recaptcha-response']) ? sanitize_text_field(wp_unslash($_POST['g-recaptcha-response'])) : '';
+        $result = self::verifyRecaptcha($token);
 
-        if ('' === $secret || '' === $token) {
-            return false;
+        // Unreachable verification is the site's problem, not the visitor's.
+        // Failing closed would silently break every form the moment Google is
+        // slow, so an outage lets submissions through.
+        return $result['success'] || $result['unreachable'];
+    }
+
+    /**
+     * Asks Google whether a token is good.
+     *
+     * Public and returning the detail rather than a bool, because the settings
+     * page tests the keys through exactly this path — a test that used its own
+     * request would be testing itself rather than what forms actually do.
+     *
+     * @return array{success: bool, unreachable: bool, errors: string[]}
+     */
+    public static function verifyRecaptcha(string $token): array
+    {
+        $result = ['success' => false, 'unreachable' => false, 'errors' => []];
+        $secret = trim((string) Settings::get('recaptcha_secret_key', ''));
+
+        if ('' === $secret) {
+            $result['errors'][] = 'missing-input-secret';
+
+            return $result;
+        }
+
+        if ('' === $token) {
+            $result['errors'][] = 'missing-input-response';
+
+            return $result;
         }
 
         $response = wp_remote_post('https://www.google.com/recaptcha/api/siteverify', [
@@ -294,14 +322,20 @@ class Submission
         if (is_wp_error($response)) {
             Logs::error('recaptcha', 'Could not reach Google to verify.', ['error' => $response->get_error_message()]);
 
-            // Unreachable verification is the site's problem. Failing closed
-            // would silently break every form the moment Google is slow.
-            return true;
+            $result['unreachable'] = true;
+            $result['errors'][]    = $response->get_error_message();
+
+            return $result;
         }
 
         $body = json_decode((string) wp_remote_retrieve_body($response), true);
 
-        return is_array($body) && !empty($body['success']);
+        $result['success'] = is_array($body) && !empty($body['success']);
+        $result['errors']  = is_array($body) && !empty($body['error-codes'])
+            ? array_map('strval', (array) $body['error-codes'])
+            : $result['errors'];
+
+        return $result;
     }
 
     private static function clientIp(): string

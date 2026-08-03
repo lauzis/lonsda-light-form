@@ -43,6 +43,7 @@ class Settings
         // that exist and carries a nonce, both of which have to be current when
         // the page is drawn rather than when the schema is read.
         $page->callback('llf_transfer_ui', [Admin::class, 'transferPanel']);
+        $page->callback('llf_recaptcha_test', [Admin::class, 'recaptchaTest']);
 
         $page->register(LLF_DIR . 'config/settings.json', [
             'prefix' => self::PREFIX,

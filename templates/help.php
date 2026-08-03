@@ -17,6 +17,9 @@ $llf_settings_url    = admin_url('admin.php?page=' . LLF_SLUG . '-settings');
     </p>
 
     <h3><?php esc_html_e('What a field carries', 'lonsda-light-form'); ?></h3>
+    <p>
+        <?php esc_html_e('The same metadata is gathered for every form and passed to both hooks — a rejection is often the more interesting one to look at. post_id is null when the form is not on a post at all, such as in a footer. The client IP is REMOTE_ADDR only: forwarding headers are set by whoever sent the request unless a proxy overwrites them, so trusting one would let a submitter choose the address recorded against them. Behind such a proxy, supply it through the context filter below. A submission rejected for a bad nonce or a tripped spam check does not reach either hook.', 'lonsda-light-form'); ?>
+    </p>
     <table class="widefat striped" style="max-width:900px;">
         <tbody>
             <tr>
@@ -121,7 +124,7 @@ $llf_settings_url    = admin_url('admin.php?page=' . LLF_SLUG . '-settings');
     <pre style="background:#f6f7f7;padding:12px;max-width:900px;overflow:auto;"><code>add_action( '<?php echo esc_html(\LonsdaLightForm\Submission::HOOK_SUBMITTED); ?>', function ( $values, $form, $context ) {
     // $values  — field name => submitted value, sanitised and validated
     // $form    — the stored definition: id, title, settings
-    // $context — post_id, ip, time
+    // $context — form_id, post_id, language, time, submitted_at, ip, user_agent
     wp_mail( get_option( 'admin_email' ), 'New submission: ' . $form['title'], print_r( $values, true ) );
 }, 10, 3 );</code></pre>
     <table class="widefat striped" style="max-width:900px;">
@@ -129,6 +132,10 @@ $llf_settings_url    = admin_url('admin.php?page=' . LLF_SLUG . '-settings');
             <tr>
                 <td style="width:230px;"><code><?php echo esc_html(\LonsdaLightForm\Submission::HOOK_SUBMITTED); ?></code></td>
                 <td><?php esc_html_e('Fired once a submission has passed every check.', 'lonsda-light-form'); ?></td>
+            </tr>
+            <tr>
+                <td><code><?php echo esc_html(\LonsdaLightForm\Submission::FILTER_CONTEXT); ?></code></td>
+                <td><?php esc_html_e('Filters the metadata above — to add keys of your own, or to supply the real client IP on a site behind a proxy.', 'lonsda-light-form'); ?></td>
             </tr>
             <tr>
                 <td><code><?php echo esc_html(\LonsdaLightForm\Submission::HOOK_REJECTED); ?></code></td>

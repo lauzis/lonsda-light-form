@@ -19,6 +19,8 @@ class Submission
      * plugin without this one growing a mail stack.
      *
      * do_action( 'lonsda_form_submitted', array $values, array $form, array $context )
+     *
+     * $context carries the metadata common to every submission — see context().
      */
     public const HOOK_SUBMITTED = 'lonsda_form_submitted';
 
@@ -35,6 +37,16 @@ class Submission
      * apply_filters( 'lonsda_form_validate', array $errors, array $values, array $form )
      */
     public const FILTER_VALIDATE = 'lonsda_form_validate';
+
+    /**
+     * Lets a site add to, or correct, the metadata recorded with a submission.
+     *
+     * apply_filters( 'lonsda_form_context', array $context, int $form_id )
+     */
+    public const FILTER_CONTEXT = 'lonsda_form_context';
+
+    /** Longest user agent kept. Real ones are far shorter; this is a bound. */
+    private const MAX_USER_AGENT = 255;
 
     /** @var array{form_id:int,errors:array,values:array,notice:string,success:bool}|null */
     private static $result = null;
@@ -129,11 +141,7 @@ class Submission
         /** @var array $errors */
         $errors = (array) apply_filters(self::FILTER_VALIDATE, $errors, $values, $form);
 
-        $context = [
-            'post_id' => get_the_ID(),
-            'ip'      => self::clientIp(),
-            'time'    => time(),
-        ];
+        $context = self::context($form_id);
 
         if (!empty($errors)) {
             Logs::add('submission', 'Rejected: validation failed.', [
@@ -286,6 +294,101 @@ class Submission
 
     private static function clientIp(): string
     {
+        // REMOTE_ADDR only. X-Forwarded-For and friends are set by whoever sent
+        // the request unless a proxy is known to overwrite them, so trusting
+        // one by default would let a submitter choose the IP recorded against
+        // them. A site behind a proxy can supply the real one via the filter on
+        // context().
         return isset($_SERVER['REMOTE_ADDR']) ? sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR'])) : '';
+    }
+
+    /**
+     * Metadata recorded with every submission, whatever the form.
+     *
+     * Gathered in one place so that every listener gets the same shape, and so
+     * a form does not have to opt into it. Passed to both the accepted and the
+     * rejected hook: a rejection is often the more interesting one to look at.
+     *
+     * @return array{
+     *     form_id: int, post_id: int|null, language: string, time: int,
+     *     submitted_at: string, ip: string, user_agent: string
+     * }
+     */
+    public static function context(int $form_id): array
+    {
+        $post_id = (int) get_the_ID();
+
+        $context = [
+            'form_id' => $form_id,
+            // Null rather than 0 when there is no post: a form can be rendered
+            // outside the loop, and 0 would read as a real id.
+            'post_id' => $post_id > 0 ? $post_id : null,
+            'language' => self::language($post_id),
+            'time'     => time(),
+            // Alongside the timestamp rather than instead of it: whoever emails
+            // this wants something readable, and UTC so it does not shift with
+            // the site's timezone setting.
+            'submitted_at' => gmdate('Y-m-d H:i:s'),
+            'ip'           => self::clientIp(),
+            'user_agent'   => self::userAgent(),
+        ];
+
+        return (array) apply_filters(self::FILTER_CONTEXT, $context, $form_id);
+    }
+
+    /** Truncated: a user agent is self-reported and has no useful upper bound. */
+    private static function userAgent(): string
+    {
+        if (!isset($_SERVER['HTTP_USER_AGENT'])) {
+            return '';
+        }
+
+        $agent = sanitize_text_field(wp_unslash($_SERVER['HTTP_USER_AGENT']));
+
+        return mb_substr($agent, 0, self::MAX_USER_AGENT);
+    }
+
+    /**
+     * The language the form was submitted in.
+     *
+     * Asks for the post's language rather than the request's where a
+     * translation plugin can tell us: they are the same on an ordinary page
+     * view, but a form rendered somewhere without a post of its own would
+     * otherwise report nothing.
+     */
+    private static function language(int $post_id): string
+    {
+        if ($post_id > 0) {
+            $details = apply_filters('wpml_post_language_details', null, $post_id);
+
+            if (is_array($details) && !empty($details['language_code'])) {
+                return (string) $details['language_code'];
+            }
+
+            if (function_exists('pll_get_post_language')) {
+                $lang = pll_get_post_language($post_id);
+
+                if ($lang) {
+                    return (string) $lang;
+                }
+            }
+        }
+
+        $current = apply_filters('wpml_current_language', null);
+
+        if (is_string($current) && '' !== $current) {
+            return $current;
+        }
+
+        if (function_exists('pll_current_language')) {
+            $lang = pll_current_language();
+
+            if ($lang) {
+                return (string) $lang;
+            }
+        }
+
+        // No translation plugin: the site has one language and this is it.
+        return determine_locale();
     }
 }

@@ -107,7 +107,7 @@ one does not grow a mail stack.
 add_action( 'lonsda_form_submitted', function ( $values, $form, $context ) {
     // $values  — field name => submitted value, sanitised and validated
     // $form    — the stored definition: id, title, settings
-    // $context — post_id, ip, time
+    // $context — the metadata below
 }, 10, 3 );
 ```
 
@@ -116,6 +116,39 @@ add_action( 'lonsda_form_submitted', function ( $values, $form, $context ) {
 | `lonsda_form_submitted` | A submission passed every check. |
 | `lonsda_form_rejected` | Validation failed; receives the errors. |
 | `lonsda_form_validate` | Filter to add errors of your own before acceptance. |
+| `lonsda_form_context` | Filter the metadata below. |
+
+### Submission metadata
+
+Gathered once, the same for every form, and passed to both the accepted and the
+rejected hook — a rejection is often the more interesting one to look at. A form
+does not opt in to any of it.
+
+| Key | What it is |
+| --- | --- |
+| `form_id` | The form that was submitted. |
+| `post_id` | The post or page it was submitted from, or `null` when there is no post — a form in a footer or widget, say. Null rather than `0`, which would read as a real id. |
+| `language` | Language code of that post, from WPML or Polylang. Falls back to the current language, then to the site locale. |
+| `time` | Unix timestamp. |
+| `submitted_at` | The same moment as `Y-m-d H:i:s` in UTC, for anything that has to be read by a person. UTC so it does not shift when the site's timezone setting changes. |
+| `ip` | `REMOTE_ADDR`. |
+| `user_agent` | Self-reported, truncated to 255 characters. |
+
+`X-Forwarded-For` is deliberately **not** consulted. It is set by whoever sent
+the request unless a proxy is known to overwrite it, so trusting it by default
+would let a submitter choose the IP recorded against them. Behind a proxy that
+does overwrite it, supply the real address through `lonsda_form_context`:
+
+```php
+add_filter( 'lonsda_form_context', function ( $context ) {
+    $context['ip'] = $_SERVER['HTTP_X_FORWARDED_FOR'];  // only where a proxy sets it
+    return $context;
+} );
+```
+
+The same filter adds keys of your own. Note that a submission rejected for a
+failed nonce or a tripped spam check does not reach either hook at all — it is
+logged and dropped.
 
 ## Spam
 

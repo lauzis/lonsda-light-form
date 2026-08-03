@@ -389,6 +389,37 @@ class Tests
         self::submit($form_id, ['email' => 'ignored@example.com', 'consent' => '1']);
         self::assert('count unchanged at ' . Entries::count($form_id), Entries::count($form_id) === $count);
 
+        self::title(__('A new entry arrives unread', 'lonsda-light-form'));
+        self::assert($entry['status'] ?? '?', Entries::STATUS_NEW === ($entry['status'] ?? ''));
+
+        self::title(__('The unread count sees it', 'lonsda-light-form'));
+        self::assert(Entries::countNew($form_id) . ' unread', Entries::countNew($form_id) > 0);
+
+        self::title(__('Opening it marks it viewed', 'lonsda-light-form'));
+        Entries::markViewed($entry['id']);
+        $after = Entries::get($entry['id']);
+        self::assert($after['status'] ?? '?', Entries::STATUS_VIEWED === ($after['status'] ?? ''));
+
+        self::title(__('And the unread count drops', 'lonsda-light-form'));
+        self::assert(Entries::countNew($form_id) . ' unread', 0 === Entries::countNew($form_id));
+
+        self::title(__('It can be put back on the pile', 'lonsda-light-form'));
+        Entries::setStatus($entry['id'], Entries::STATUS_NEW);
+        self::assert('unread again', Entries::STATUS_NEW === (Entries::get($entry['id'])['status'] ?? ''));
+
+        self::title(__('An invented status is refused', 'lonsda-light-form'));
+        self::assert(
+            'rejected, and the entry is untouched',
+            false === Entries::setStatus($entry['id'], 'nonsense')
+                && Entries::STATUS_NEW === (Entries::get($entry['id'])['status'] ?? '')
+        );
+
+        self::title(__('Filtering by status agrees with counting it', 'lonsda-light-form'));
+        self::assert(
+            sprintf('%d rows, count says %d', count(Entries::all(['form_id' => $form_id, 'status' => Entries::STATUS_NEW])), Entries::count($form_id, Entries::STATUS_NEW)),
+            count(Entries::all(['form_id' => $form_id, 'status' => Entries::STATUS_NEW])) === Entries::count($form_id, Entries::STATUS_NEW)
+        );
+
         self::title(__('CSV export includes the answers', 'lonsda-light-form'));
         $csv = Entries::csv($form_id);
         self::assert('the stored address appears in the CSV', false !== strpos($csv, 'stored@example.com'));
@@ -440,8 +471,6 @@ class Tests
 
         self::submit($form_id, ['email' => 'visitor@example.com', 'message' => 'Hello there']);
 
-        remove_filter(Notifications::FILTER_MAIL, $spy, 10);
-
         self::title(__('A recipient means one notification', 'lonsda-light-form'));
         self::assert(count($sent) . ' prepared', 1 === count($sent), $sent);
 
@@ -471,6 +500,41 @@ class Tests
             implode(', ', (array) ($mail['headers'] ?? [])),
             in_array('Reply-To: visitor@example.com', (array) ($mail['headers'] ?? []), true)
         );
+
+        self::title(__('A field can be used by its name in the subject', 'lonsda-light-form'));
+        carbon_set_post_meta($post_id, 'llf_notify_subject', 'From {email} via {site_name}');
+        carbon_set_post_meta($post_id, 'llf_notify_message', "Hello,\n{message}\n\n{all_fields}\n{page_url}");
+        Forms::syncToTable($post_id, get_post($post_id));
+
+        $sent = [];
+        self::submit($form_id, ['email' => 'named@example.com', 'message' => 'Placeholder body']);
+        $mail = $sent[0] ?? [];
+
+        self::assert(
+            (string) ($mail['subject'] ?? ''),
+            false !== strpos((string) ($mail['subject'] ?? ''), 'From named@example.com via')
+        );
+
+        self::title(__('And in the message', 'lonsda-light-form'));
+        self::assert(
+            'the field answer was substituted',
+            false !== strpos((string) ($mail['message'] ?? ''), 'Placeholder body')
+        );
+
+        self::title(__('{all_fields} expands to the whole list', 'lonsda-light-form'));
+        self::assert(
+            'labels and answers present',
+            self::hasAll((string) ($mail['message'] ?? ''), ['Email: named@example.com', 'Message: Placeholder body'])
+        );
+
+        self::title(__('No placeholder survives into the message', 'lonsda-light-form'));
+        self::assert(
+            'nothing left in braces',
+            0 === preg_match('/\{[a-z_]+\}/', (string) ($mail['message'] ?? '') . (string) ($mail['subject'] ?? '')),
+            $mail['message'] ?? ''
+        );
+
+        remove_filter(Notifications::FILTER_MAIL, $spy, 10);
 
         self::title(__('No mail left this run', 'lonsda-light-form'));
         // run() cancels every send by returning an empty array, the documented

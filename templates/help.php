@@ -11,6 +11,58 @@ $llf_settings_url    = admin_url('admin.php?page=' . LLF_SLUG . '-settings');
 <div class="wrap">
     <h1><?php esc_html_e('Lonsda Light Form — Help', 'lonsda-light-form'); ?></h1>
 
+    <p class="description" style="max-width:860px;">
+        <?php esc_html_e('The first section is the short path from nothing to a working form. Everything after it is reference — what each setting does, and why it behaves the way it does.', 'lonsda-light-form'); ?>
+    </p>
+
+    <h2><?php esc_html_e('Getting started', 'lonsda-light-form'); ?></h2>
+    <ol style="max-width:860px;">
+        <li>
+            <?php
+            printf(
+                /* translators: %s: link to the add form screen */
+                wp_kses(
+                    __('Go to <a href="%s">Forms &rarr; Add Form</a> and give it a title. The title is how you will find it later, and it becomes the notification subject.', 'lonsda-light-form'),
+                    ['a' => ['href' => []]]
+                ),
+                esc_url(admin_url('post-new.php?post_type=' . \LonsdaLightForm\Forms::POST_TYPE))
+            );
+            ?>
+        </li>
+        <li><?php esc_html_e('On the Fields tab, add a row per input. Give each a Label — everything else has a sensible default. Rows are collapsed to their labels, so drag them to reorder without opening them.', 'lonsda-light-form'); ?></li>
+        <li><?php esc_html_e('Publish. The form is now usable; the other tabs are refinements you can come back to.', 'lonsda-light-form'); ?></li>
+        <li>
+            <?php
+            printf(
+                /* translators: %s: link to the forms list */
+                wp_kses(
+                    __('Open <a href="%s">Forms</a> and note the id in the first column. That is the form id, and it is not the number in the address bar while editing — see below.', 'lonsda-light-form'),
+                    ['a' => ['href' => []]]
+                ),
+                esc_url(admin_url('admin.php?page=' . LLF_SLUG))
+            );
+            ?>
+        </li>
+        <li><?php esc_html_e('Edit the page the form belongs on and insert the Lonsda Form block, choosing the form from the dropdown. Or paste the shortcode with that id.', 'lonsda-light-form'); ?></li>
+        <li><?php esc_html_e('Submit it yourself once. The answer appears under Entries, and a notification goes to the address on the Notifications tab.', 'lonsda-light-form'); ?></li>
+    </ol>
+
+    <h3><?php esc_html_e('Two ids, and which one you need', 'lonsda-light-form'); ?></h3>
+    <p style="max-width:860px;">
+        <?php esc_html_e('A form is edited as a post but rendered from its own table, so it has a post id and a form id. The Forms list, the shortcode and the block all use the form id. The post id only ever appears in the address bar while editing, and using it renders nothing — if you do, the message on the page names the id you should have used instead.', 'lonsda-light-form'); ?>
+    </p>
+
+    <h3><?php esc_html_e('What is on each tab', 'lonsda-light-form'); ?></h3>
+    <table class="widefat striped" style="max-width:860px;margin-bottom:20px;">
+        <tbody>
+            <tr><th style="width:170px;"><?php esc_html_e('Fields', 'lonsda-light-form'); ?></th><td><?php esc_html_e('The inputs, in the order they appear.', 'lonsda-light-form'); ?></td></tr>
+            <tr><th><?php esc_html_e('Submit button', 'lonsda-light-form'); ?></th><td><?php esc_html_e('Its wording, and the key that translates it.', 'lonsda-light-form'); ?></td></tr>
+            <tr><th><?php esc_html_e('Confirmation', 'lonsda-light-form'); ?></th><td><?php esc_html_e('What is shown after a successful submission, and whether the form is hidden.', 'lonsda-light-form'); ?></td></tr>
+            <tr><th><?php esc_html_e('Notifications', 'lonsda-light-form'); ?></th><td><?php esc_html_e('Who is emailed, and whether entries are kept.', 'lonsda-light-form'); ?></td></tr>
+            <tr><th><?php esc_html_e('Protection', 'lonsda-light-form'); ?></th><td><?php esc_html_e('reCAPTCHA, once it is configured in Settings.', 'lonsda-light-form'); ?></td></tr>
+        </tbody>
+    </table>
+
     <h2><?php esc_html_e('Building a form', 'lonsda-light-form'); ?></h2>
     <p>
         <?php esc_html_e('A form is a title and a list of fields. Add one from Forms → Add Form: the title names it for you in the admin, and each row in the Fields list becomes one input.', 'lonsda-light-form'); ?>
@@ -103,26 +155,129 @@ $llf_settings_url    = admin_url('admin.php?page=' . LLF_SLUG . '-settings');
 
     <h2><?php esc_html_e('Entries and notifications', 'lonsda-light-form'); ?></h2>
     <p>
-        <?php esc_html_e('Submissions are kept in the database and listed under Entries, where they can be filtered by form, opened to see every answer with the page, language and IP address, deleted, or downloaded as CSV. Keeping them is on by default: a notification that never arrives is otherwise a lost enquiry, and mail is the part most likely to break quietly.', 'lonsda-light-form'); ?>
+        <?php esc_html_e('Submissions are kept in the database and listed under Entries, where they can be filtered by form or status, opened to see every answer with the page, language and IP address, deleted, or downloaded as CSV. Keeping them is on by default: a notification that never arrives is otherwise a lost enquiry, and mail is the part most likely to break quietly.', 'lonsda-light-form'); ?>
     </p>
     <p>
         <?php esc_html_e('A new form arrives with its Notifications tab prefilled: the site administration address from Settings → General, and the subject {form_title}, which becomes the form name when the mail is sent. Both are ordinary fields — change them, or clear the address to send nothing. Naming a field in Reply-To makes replies go to whoever submitted the form. An entry keeps each label and type next to its value, so it stays readable after the form has been changed.', 'lonsda-light-form'); ?>
     </p>
+
+    <p>
+        <?php esc_html_e('An entry arrives marked New and becomes Viewed when you open it — opening it is the only evidence of it being read that exists. The number still unread appears beside Entries in the menu, so a submission does not sit there unnoticed. If you open one by accident, Mark unread puts it back.', 'lonsda-light-form'); ?>
+    </p>
+
+    <h3><?php esc_html_e('What you can put in a notification', 'lonsda-light-form'); ?></h3>
+    <p style="max-width:860px;">
+        <?php esc_html_e('The subject and the message both accept placeholders. Leave the message empty and it lists every field and its answer; write your own and you decide what goes in it.', 'lonsda-light-form'); ?>
+    </p>
+    <p style="max-width:860px;">
+        <strong><?php esc_html_e('Any field can be used by its Name.', 'lonsda-light-form'); ?></strong>
+        <?php esc_html_e('A field named surname becomes {surname}. That is the Name on the field, not its Label — the Label is what the visitor reads and may be several words. A field left blank comes out as nothing, and a checkbox as Yes or No.', 'lonsda-light-form'); ?>
+    </p>
+
+    <table class="widefat striped" style="max-width:860px;margin-bottom:12px;">
+        <thead>
+            <tr>
+                <th style="width:200px;"><?php esc_html_e('Placeholder', 'lonsda-light-form'); ?></th>
+                <th><?php esc_html_e('Replaced by', 'lonsda-light-form'); ?></th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td><code>{<?php esc_html_e('field_name', 'lonsda-light-form'); ?>}</code></td><td><?php esc_html_e('That field\'s answer — {surname} for a field named surname.', 'lonsda-light-form'); ?></td></tr>
+            <tr><td><code>{all_fields}</code></td><td><?php esc_html_e('Every field and its answer, one per line, in the order they appear on the form.', 'lonsda-light-form'); ?></td></tr>
+            <tr><td><code>{form_title}</code></td><td><?php esc_html_e('The form\'s title.', 'lonsda-light-form'); ?></td></tr>
+            <tr><td><code>{site_name}</code></td><td><?php esc_html_e('The site title.', 'lonsda-light-form'); ?></td></tr>
+            <tr><td><code>{site_url}</code></td><td><?php esc_html_e('The site address.', 'lonsda-light-form'); ?></td></tr>
+            <tr><td><code>{submitted_at}</code></td><td><?php esc_html_e('When it was submitted, in UTC.', 'lonsda-light-form'); ?></td></tr>
+            <tr><td><code>{page_title}</code></td><td><?php esc_html_e('The page the form was on. Empty if it was not on one.', 'lonsda-light-form'); ?></td></tr>
+            <tr><td><code>{page_url}</code></td><td><?php esc_html_e('That page\'s address.', 'lonsda-light-form'); ?></td></tr>
+            <tr><td><code>{language}</code></td><td><?php esc_html_e('Language the page was in.', 'lonsda-light-form'); ?></td></tr>
+            <tr><td><code>{ip}</code></td><td><?php esc_html_e('The submitter\'s IP address.', 'lonsda-light-form'); ?></td></tr>
+            <tr><td><code>{user_agent}</code></td><td><?php esc_html_e('The browser they used.', 'lonsda-light-form'); ?></td></tr>
+        </tbody>
+    </table>
+
+    <p style="max-width:860px;">
+        <?php esc_html_e('A field whose Name matches one of the fixed placeholders does not displace it — {site_name} always means the site, on every form.', 'lonsda-light-form'); ?>
+    </p>
+
+    <p><strong><?php esc_html_e('For example', 'lonsda-light-form'); ?></strong></p>
+    <pre style="background:#f6f7f7;padding:12px;max-width:860px;overflow:auto;"><code><?php
+        echo esc_html(
+            __('Subject:', 'lonsda-light-form') . ' ' . __('Enquiry from {surname} via {site_name}', 'lonsda-light-form') . "\n\n"
+            . __('Message:', 'lonsda-light-form') . "\n"
+            . __('{surname} got in touch through {page_title}.', 'lonsda-light-form') . "\n\n"
+            . '{all_fields}' . "\n\n"
+            . __('Reply to them at {email}. Received {submitted_at} UTC.', 'lonsda-light-form')
+        );
+    ?></code></pre>
 
     <h2><?php esc_html_e('After a submission', 'lonsda-light-form'); ?></h2>
     <p>
         <?php esc_html_e('Each form has its own confirmation message, edited on the form itself, and a setting for whether the form is hidden once it has been accepted. Hiding is on by default: leaving a filled-in form on screen under a thank-you reads as though nothing was sent, and invites a second submission. Switch it off to leave the form in place.', 'lonsda-light-form'); ?>
     </p>
 
-    <h2><?php esc_html_e('Translation keys', 'lonsda-light-form'); ?></h2>
-    <p>
-        <?php esc_html_e('Field labels and the submit button are typed in here rather than living in the plugin, so they cannot be picked up for translation the usual way. Each one carries a key instead.', 'lonsda-light-form'); ?>
+    <h2><?php esc_html_e('Translating the fields', 'lonsda-light-form'); ?></h2>
+    <p style="max-width:860px;">
+        <?php esc_html_e('Labels, the submit button and the confirmation are typed into the form editor, so they live in the database rather than in the plugin. The tools that normally collect translatable text scan source files and cannot see them. Each string therefore carries a key of its own.', 'lonsda-light-form'); ?>
     </p>
-    <p>
-        <?php esc_html_e('A key is filled in from the field name — a field named email gets field_email_label — and keeps in step with it, so renaming the field renames the key. Change a key yourself and it stops following: a key you chose may already be referred to elsewhere, so a later rename must not quietly change it. Clear the box to hand it back.', 'lonsda-light-form'); ?>
+
+    <h3><?php esc_html_e('Where the keys come from', 'lonsda-light-form'); ?></h3>
+    <p style="max-width:860px;">
+        <?php esc_html_e('A key is filled in from the field name: a field named email gets field_email_label. It keeps in step with the name, so renaming the field renames the key and nothing has to be tidied up by hand.', 'lonsda-light-form'); ?>
     </p>
-    <p>
-        <?php esc_html_e('The submit button works the same way, keyed from the form slug. Keys are handed to WPML when the form is saved, so a translator sees a string before anyone visits the page it is on.', 'lonsda-light-form'); ?>
+    <p style="max-width:860px;">
+        <?php esc_html_e('Change a key yourself and it stops following. That is deliberate — a key you chose may already be referred to somewhere else, so a later rename must not quietly change it out from under you. Clearing the box hands it back to automatic control and it is regenerated from the current name.', 'lonsda-light-form'); ?>
+    </p>
+    <table class="widefat striped" style="max-width:860px;margin-bottom:20px;">
+        <thead>
+            <tr>
+                <th style="width:30%;"><?php esc_html_e('What you do', 'lonsda-light-form'); ?></th>
+                <th><?php esc_html_e('What the key does', 'lonsda-light-form'); ?></th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td><?php esc_html_e('Name a field "email"', 'lonsda-light-form'); ?></td><td><code>field_email_label</code></td></tr>
+            <tr><td><?php esc_html_e('Rename it to "mail"', 'lonsda-light-form'); ?></td><td><code>field_mail_label</code> — <?php esc_html_e('follows', 'lonsda-light-form'); ?></td></tr>
+            <tr><td><?php esc_html_e('Type your own key', 'lonsda-light-form'); ?></td><td><?php esc_html_e('kept, and left alone from then on', 'lonsda-light-form'); ?></td></tr>
+            <tr><td><?php esc_html_e('Clear the box', 'lonsda-light-form'); ?></td><td><?php esc_html_e('back to automatic, regenerated from the name', 'lonsda-light-form'); ?></td></tr>
+        </tbody>
+    </table>
+
+    <h3><?php esc_html_e('Translating them here', 'lonsda-light-form'); ?></h3>
+    <p style="max-width:860px;">
+        <?php
+        printf(
+            /* translators: %s: link to the translations page */
+            wp_kses(
+                __('Open <a href="%s">Translations</a>, choose a language and a form, and fill in the boxes. Saving writes both a .mo, which is what the site reads, and a .po, which is the editable source — so a translation started here can be carried on in Poedit or handed to someone else, and one done elsewhere can be uploaded back.', 'lonsda-light-form'),
+                ['a' => ['href' => []]]
+            ),
+            esc_url(admin_url('admin.php?page=' . LLF_SLUG . '-translations'))
+        );
+        ?>
+    </p>
+    <ul style="list-style:disc;padding-left:22px;max-width:860px;">
+        <li><?php esc_html_e('An empty box means untranslated, and the original wording is shown instead. Nothing ever renders as a bare key.', 'lonsda-light-form'); ?></li>
+        <li><?php esc_html_e('Clearing a box that had a translation removes it.', 'lonsda-light-form'); ?></li>
+        <li><?php esc_html_e('Saving one form does not disturb translations for another — only what is on screen is changed, and the rest of the file is kept.', 'lonsda-light-form'); ?></li>
+        <li><?php esc_html_e('The language list offers whatever the site has: the languages from WPML or Polylang if either is running, plus any WordPress translations installed.', 'lonsda-light-form'); ?></li>
+    </ul>
+    <p style="max-width:860px;">
+        <?php
+        printf(
+            /* translators: %s: directory path */
+            esc_html__('Files are kept in %s rather than inside the plugin, because WordPress replaces the plugin folder on every update and would take them with it. You can drop files there over FTP just as well as using the page.', 'lonsda-light-form'),
+            '<code>' . esc_html(str_replace(ABSPATH, '', \LonsdaLightForm\Translations::directory())) . '</code>'
+        );
+        ?>
+    </p>
+    <p style="max-width:860px;">
+        <?php esc_html_e('A file has to be named for the locale WordPress serves the page in, or it is never looked for. The Translations page shows the current locale and lists what is installed, so a file that is being ignored is visible rather than mysterious.', 'lonsda-light-form'); ?>
+    </p>
+
+    <h3><?php esc_html_e('If the site runs WPML', 'lonsda-light-form'); ?></h3>
+    <p style="max-width:860px;">
+        <?php esc_html_e('Strings are handed to WPML String Translation when a form is saved, so a translator sees them before anyone has visited the page they are on. WPML is consulted first and these files fill in whatever it has no translation for, so the two can be used together and neither has to be turned off.', 'lonsda-light-form'); ?>
     </p>
 
     <h2><?php esc_html_e('Handling submissions', 'lonsda-light-form'); ?></h2>

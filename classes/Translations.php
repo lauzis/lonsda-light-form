@@ -52,6 +52,162 @@ class Translations
         return self::directory() . '/' . self::DOMAIN . '-' . $locale . '.mo';
     }
 
+    /**
+     * Where the editable source sits, beside the compiled file.
+     *
+     * Both are written on every save. The MO is what gettext reads; the PO is
+     * what a person opens in Poedit, and without it a translation could only
+     * ever be edited here.
+     */
+    public static function poPath(string $locale): string
+    {
+        return self::directory() . '/' . self::DOMAIN . '-' . $locale . '.po';
+    }
+
+    /**
+     * Translations already recorded for a locale.
+     *
+     * @return array<string, string> Translation key => translated text.
+     */
+    public static function existing(string $locale): array
+    {
+        $path = self::path($locale);
+
+        if (!is_readable($path)) {
+            return [];
+        }
+
+        if (!class_exists('\MO')) {
+            require_once ABSPATH . WPINC . '/pomo/mo.php';
+        }
+
+        $mo = new \MO();
+
+        if (!$mo->import_from_file($path)) {
+            return [];
+        }
+
+        $found = [];
+
+        foreach ($mo->entries as $entry) {
+            // The context is the translation key; entries without one are not
+            // ours and are left alone rather than shown as if they were.
+            if (!empty($entry->context)) {
+                $found[$entry->context] = (string) ($entry->translations[0] ?? '');
+            }
+        }
+
+        return $found;
+    }
+
+    /**
+     * Records translations for a locale, keeping any it was not shown.
+     *
+     * The editor works one form at a time, so a save must not be read as "these
+     * are all the translations there are" — merging is what stops translating
+     * one form from wiping another.
+     *
+     * @param array<string, string> $pairs Translation key => translated text.
+     * @return true|\WP_Error
+     */
+    public static function save(string $locale, array $pairs)
+    {
+        if (!current_user_can('manage_options')) {
+            return new \WP_Error('llf_denied', __('You are not allowed to edit translations.', 'lonsda-light-form'));
+        }
+
+        $locale = self::sanitizeLocale($locale);
+
+        if ('' === $locale) {
+            return new \WP_Error('llf_bad_locale', __('That is not a valid locale.', 'lonsda-light-form'));
+        }
+
+        if (!class_exists('\MO')) {
+            require_once ABSPATH . WPINC . '/pomo/mo.php';
+        }
+
+        if (!class_exists('\PO')) {
+            require_once ABSPATH . WPINC . '/pomo/po.php';
+        }
+
+        $merged  = self::existing($locale);
+        $strings = self::strings();
+
+        foreach ($pairs as $key => $text) {
+            $key  = (string) $key;
+            $text = trim((string) $text);
+
+            // An emptied box removes the translation rather than storing an
+            // empty one, which gettext would treat as untranslated anyway while
+            // leaving a misleading entry in the file.
+            if ('' === $text) {
+                unset($merged[$key]);
+
+                continue;
+            }
+
+            $merged[$key] = $text;
+        }
+
+        $mo          = new \MO();
+        $mo->headers = self::headers($locale);
+
+        foreach ($merged as $key => $text) {
+            // Skipped when the original is gone: a translation with nothing
+            // left to translate is dead weight, and its msgid is unknown.
+            if (!isset($strings[$key])) {
+                continue;
+            }
+
+            $mo->add_entry(new \Translation_Entry([
+                'context'      => $key,
+                'singular'     => $strings[$key]['text'],
+                'translations' => [$text],
+            ]));
+        }
+
+        if (!$mo->export_to_file(self::path($locale))) {
+            return new \WP_Error(
+                'llf_not_written',
+                sprintf(
+                    /* translators: %s: directory path */
+                    __('Could not write to %s. Check the directory is writable.', 'lonsda-light-form'),
+                    self::directory()
+                )
+            );
+        }
+
+        $po          = new \PO();
+        $po->headers = $mo->headers;
+        $po->entries = $mo->entries;
+        $po->export_to_file(self::poPath($locale));
+
+        Logs::add('translations', 'Translations saved from the editor.', [
+            'locale'  => $locale,
+            'entries' => count($mo->entries),
+        ]);
+
+        return true;
+    }
+
+    /**
+     * PO/MO headers, without which the file is not quite a translation file.
+     *
+     * @return array<string, string>
+     */
+    private static function headers(string $locale): array
+    {
+        return [
+            'Project-Id-Version'        => self::DOMAIN,
+            'Language'                  => $locale,
+            'MIME-Version'              => '1.0',
+            'Content-Type'              => 'text/plain; charset=UTF-8',
+            'Content-Transfer-Encoding' => '8bit',
+            'PO-Revision-Date'          => gmdate('Y-m-d H:iO'),
+            'X-Generator'               => 'Lonsda Light Form ' . LLF_VERSION,
+        ];
+    }
+
     /** The directory holding them, created on demand. */
     public static function directory(): string
     {
@@ -72,11 +228,15 @@ class Translations
      *
      * @return array<string, array{text: string, forms: string[]}>
      */
-    public static function strings(): array
+    public static function strings(int $form_id = 0): array
     {
         $strings = [];
 
         foreach (Forms::all() as $row) {
+            if ($form_id > 0 && (int) $row->id !== $form_id) {
+                continue;
+            }
+
             $settings = json_decode((string) $row->settings, true);
 
             if (!is_array($settings)) {

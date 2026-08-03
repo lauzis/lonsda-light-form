@@ -38,10 +38,12 @@ class Notifications
             return;
         }
 
+        $tokens = self::placeholders($values, $form, $context);
+
         $mail = [
             'to'      => $recipients,
-            'subject' => self::subject($settings, $form),
-            'message' => self::body($values, $form, $context),
+            'subject' => self::subject($settings, $form, $tokens),
+            'message' => self::message($settings, $tokens),
             'headers' => self::headers($values, $settings),
         ];
 
@@ -111,22 +113,90 @@ class Notifications
         return $valid;
     }
 
-    /** @param array $settings Stored form settings. */
-    private static function subject(array $settings, array $form): string
+    /**
+     * Everything {in_braces} stands for, for both the subject and the message.
+     *
+     * Field answers first, then the built-ins, so a field named site_name
+     * cannot quietly displace the site's own — the fixed set has to mean the
+     * same thing on every form.
+     *
+     * @return array<string, string>
+     */
+    public static function placeholders(array $values, array $form, array $context): array
+    {
+        $tokens = [];
+
+        foreach ($form['settings']['fields'] ?? [] as $field) {
+            $name = (string) ($field['name'] ?? '');
+
+            if ('' === $name) {
+                continue;
+            }
+
+            $value = $values[$name] ?? null;
+
+            if ('checkbox' === ($field['type'] ?? '')) {
+                $value = $value ? __('Yes', 'lonsda-light-form') : __('No', 'lonsda-light-form');
+            }
+
+            $tokens['{' . $name . '}'] = trim((string) $value);
+        }
+
+        $page = !empty($context['post_id']) ? (string) get_permalink((int) $context['post_id']) : '';
+
+        $tokens['{all_fields}']   = self::fieldList($values, $form);
+        $tokens['{form_title}']   = (string) ($form['title'] ?? '');
+        $tokens['{site_name}']    = (string) get_bloginfo('name');
+        $tokens['{site_url}']     = home_url();
+        $tokens['{submitted_at}'] = (string) ($context['submitted_at'] ?? '');
+        $tokens['{page_title}']   = !empty($context['post_id']) ? (string) get_the_title((int) $context['post_id']) : '';
+        $tokens['{page_url}']     = $page;
+        $tokens['{language}']     = (string) ($context['language'] ?? '');
+        $tokens['{ip}']           = (string) ($context['ip'] ?? '');
+        $tokens['{user_agent}']   = (string) ($context['user_agent'] ?? '');
+
+        return $tokens;
+    }
+
+    /**
+     * @param array $settings Stored form settings.
+     * @param array $tokens   Placeholder => replacement.
+     */
+    private static function subject(array $settings, array $form, array $tokens): string
     {
         $subject = trim((string) ($settings['notify_subject'] ?? ''));
-        $title   = (string) ($form['title'] ?? '');
 
         if ('' === $subject) {
             /* translators: %s: form title */
-            $subject = sprintf(__('New submission: %s', 'lonsda-light-form'), $title);
+            $subject = sprintf(__('New submission: %s', 'lonsda-light-form'), (string) ($form['title'] ?? ''));
         }
 
-        return str_replace(
-            ['{form_title}', '{site_name}'],
-            [$title, (string) get_bloginfo('name')],
-            $subject
-        );
+        return self::replace($subject, $tokens);
+    }
+
+    /**
+     * The message: the form's own template, or every field when it has none.
+     *
+     * @param array $settings Stored form settings.
+     * @param array $tokens   Placeholder => replacement.
+     */
+    private static function message(array $settings, array $tokens): string
+    {
+        $template = trim((string) ($settings['notify_message'] ?? ''));
+
+        if ('' === $template) {
+            return self::defaultBody($tokens);
+        }
+
+        return self::replace($template, $tokens);
+    }
+
+    /**
+     * @param array<string, string> $tokens
+     */
+    private static function replace(string $text, array $tokens): string
+    {
+        return str_replace(array_keys($tokens), array_values($tokens), $text);
     }
 
     /**
@@ -151,24 +221,51 @@ class Notifications
     }
 
     /**
-     * The message, as plain text.
+     * The message used when a form has no template of its own.
      *
      * Plain rather than HTML because it is read, not designed, and a plain
      * message cannot render wrongly or be held back as suspicious markup.
+     *
+     * @param array<string, string> $tokens
      */
-    private static function body(array $values, array $form, array $context): string
+    private static function defaultBody(array $tokens): string
     {
         $lines = [
             sprintf(
                 /* translators: %s: form title */
                 __('A form was submitted: %s', 'lonsda-light-form'),
-                (string) ($form['title'] ?? '')
+                $tokens['{form_title}'] ?? ''
             ),
             '',
+            $tokens['{all_fields}'] ?? '',
+            '',
+            str_repeat('-', 40),
+            __('Submitted', 'lonsda-light-form') . ': ' . ($tokens['{submitted_at}'] ?? '') . ' UTC',
         ];
 
-        // Walked in field order rather than in the order values arrived, so the
-        // mail reads like the form and a missing answer is visible as a gap.
+        if ('' !== ($tokens['{page_url}'] ?? '')) {
+            $lines[] = __('Page', 'lonsda-light-form') . ': ' . $tokens['{page_url}'];
+        }
+
+        if ('' !== ($tokens['{language}'] ?? '')) {
+            $lines[] = __('Language', 'lonsda-light-form') . ': ' . $tokens['{language}'];
+        }
+
+        $lines[] = __('IP address', 'lonsda-light-form') . ': ' . ($tokens['{ip}'] ?? '');
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * Every field and its answer, one per line.
+     *
+     * Walked in field order rather than in the order values arrived, so it
+     * reads like the form and a missing answer is visible as a gap.
+     */
+    private static function fieldList(array $values, array $form): string
+    {
+        $lines = [];
+
         foreach ($form['settings']['fields'] ?? [] as $field) {
             $name  = (string) ($field['name'] ?? '');
             $value = $values[$name] ?? null;
@@ -182,22 +279,6 @@ class Notifications
             $lines[] = (string) ($field['label'] ?? $name) . ': '
                 . ('' === $value ? __('(not answered)', 'lonsda-light-form') : $value);
         }
-
-        $page = !empty($context['post_id']) ? get_permalink((int) $context['post_id']) : '';
-
-        $lines[] = '';
-        $lines[] = str_repeat('-', 40);
-        $lines[] = __('Submitted', 'lonsda-light-form') . ': ' . ($context['submitted_at'] ?? '') . ' UTC';
-
-        if ($page) {
-            $lines[] = __('Page', 'lonsda-light-form') . ': ' . $page;
-        }
-
-        if (!empty($context['language'])) {
-            $lines[] = __('Language', 'lonsda-light-form') . ': ' . $context['language'];
-        }
-
-        $lines[] = __('IP address', 'lonsda-light-form') . ': ' . ($context['ip'] ?? '');
 
         return implode("\n", $lines);
     }

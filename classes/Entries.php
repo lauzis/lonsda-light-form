@@ -16,6 +16,12 @@ namespace LonsdaLightForm;
  */
 class Entries
 {
+    /** Arrived, nobody has looked at it. */
+    public const STATUS_NEW = 'new';
+
+    /** Opened in the admin at least once. */
+    public const STATUS_VIEWED = 'viewed';
+
     public static function init(): void
     {
         add_action(Submission::HOOK_SUBMITTED, [self::class, 'store'], 5, 3);
@@ -63,9 +69,10 @@ class Entries
                 'ip'           => (string) ($context['ip'] ?? ''),
                 'user_agent'   => (string) ($context['user_agent'] ?? ''),
                 'data'         => wp_json_encode($rows),
+                'status'       => self::STATUS_NEW,
                 'submitted_at' => (string) ($context['submitted_at'] ?? gmdate('Y-m-d H:i:s')),
             ],
-            ['%d', '%s', '%d', '%s', '%s', '%s', '%s', '%s']
+            ['%d', '%s', '%d', '%s', '%s', '%s', '%s', '%s', '%s']
         );
 
         if (false === $inserted) {
@@ -98,45 +105,61 @@ class Entries
         global $wpdb;
 
         $form_id  = (int) ($args['form_id'] ?? 0);
+        $status   = (string) ($args['status'] ?? '');
         $per_page = max(1, min(200, (int) ($args['per_page'] ?? 25)));
         $page     = max(1, (int) ($args['page'] ?? 1));
         $offset   = ($page - 1) * $per_page;
         $table    = Migrations::entriesTableName();
 
-        if ($form_id > 0) {
-            return (array) $wpdb->get_results(
-                $wpdb->prepare(
-                    "SELECT * FROM {$table} WHERE form_id = %d ORDER BY submitted_at DESC, id DESC LIMIT %d OFFSET %d",
-                    $form_id,
-                    $per_page,
-                    $offset
-                )
-            );
-        }
+        [$where, $params] = self::conditions($form_id, $status);
+        $params[]         = $per_page;
+        $params[]         = $offset;
 
         return (array) $wpdb->get_results(
             $wpdb->prepare(
-                "SELECT * FROM {$table} ORDER BY submitted_at DESC, id DESC LIMIT %d OFFSET %d",
-                $per_page,
-                $offset
+                "SELECT * FROM {$table} {$where} ORDER BY submitted_at DESC, id DESC LIMIT %d OFFSET %d",
+                $params
             )
         );
     }
 
     /** How many entries there are, for paging and for the forms list. */
-    public static function count(int $form_id = 0): int
+    public static function count(int $form_id = 0, string $status = ''): int
     {
         global $wpdb;
 
-        $table = Migrations::entriesTableName();
+        $table            = Migrations::entriesTableName();
+        [$where, $params] = self::conditions($form_id, $status);
 
-        if ($form_id > 0) {
-            return (int) $wpdb->get_var(
-                $wpdb->prepare("SELECT COUNT(*) FROM {$table} WHERE form_id = %d", $form_id)
-            );
+        if (!$params) {
+            return (int) $wpdb->get_var("SELECT COUNT(*) FROM {$table}");
         }
 
-        return (int) $wpdb->get_var("SELECT COUNT(*) FROM {$table}");
+        return (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$table} {$where}", $params));
+    }
+
+    /**
+     * Builds the shared WHERE clause, so listing and counting cannot drift
+     * apart and report a total that does not match the rows shown.
+     *
+     * @return array{0: string, 1: array}
+     */
+    private static function conditions(int $form_id, string $status): array
+    {
+        $clauses = [];
+        $params  = [];
+
+        if ($form_id > 0) {
+            $clauses[] = 'form_id = %d';
+            $params[]  = $form_id;
+        }
+
+        if (in_array($status, [self::STATUS_NEW, self::STATUS_VIEWED], true)) {
+            $clauses[] = 'status = %s';
+            $params[]  = $status;
+        }
+
+        return [$clauses ? 'WHERE ' . implode(' AND ', $clauses) : '', $params];
     }
 
     /** One entry, with its answers decoded. */
@@ -168,8 +191,73 @@ class Entries
             'ip'           => (string) $row->ip,
             'user_agent'   => (string) $row->user_agent,
             'submitted_at' => (string) $row->submitted_at,
+            // Defaulted rather than read blindly: a row written before the
+            // column existed has no status, and unread is the safer reading.
+            'status'       => (string) ($row->status ?? self::STATUS_NEW) ?: self::STATUS_NEW,
             'fields'       => is_array($data) ? $data : [],
         ];
+    }
+
+    /**
+     * Records that someone has looked at an entry.
+     *
+     * Called from the list when a row is expanded — opening it is the only
+     * evidence of being read that exists, so it is what marks it.
+     */
+    public static function markViewed(int $id): bool
+    {
+        return self::setStatus($id, self::STATUS_VIEWED);
+    }
+
+    /** Sets an entry's status, refusing anything not a known one. */
+    public static function setStatus(int $id, string $status): bool
+    {
+        global $wpdb;
+
+        if (!in_array($status, [self::STATUS_NEW, self::STATUS_VIEWED], true)) {
+            return false;
+        }
+
+        return false !== $wpdb->update(
+            Migrations::entriesTableName(),
+            ['status' => $status],
+            ['id' => $id],
+            ['%s'],
+            ['%d']
+        );
+    }
+
+    /**
+     * How many entries nobody has opened.
+     *
+     * Read on every admin page to draw the menu bubble, which is why status is
+     * indexed.
+     */
+    public static function countNew(int $form_id = 0): int
+    {
+        global $wpdb;
+
+        $table = Migrations::entriesTableName();
+
+        // The table is missing until the migration has run, and an admin page
+        // must not fatal because of that.
+        if ($table !== $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table))) {
+            return 0;
+        }
+
+        if ($form_id > 0) {
+            return (int) $wpdb->get_var(
+                $wpdb->prepare(
+                    "SELECT COUNT(*) FROM {$table} WHERE status = %s AND form_id = %d",
+                    self::STATUS_NEW,
+                    $form_id
+                )
+            );
+        }
+
+        return (int) $wpdb->get_var(
+            $wpdb->prepare("SELECT COUNT(*) FROM {$table} WHERE status = %s", self::STATUS_NEW)
+        );
     }
 
     /** Removes one entry. */

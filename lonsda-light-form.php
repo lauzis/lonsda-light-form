@@ -3,7 +3,7 @@
  * Plugin Name: Lonsda Light Form
  * Plugin URI:  https://github.com/lauzis/lonsda-light-form
  * Description: Lightweight Carbon Fields form builder.
- * Version:     0.7.1
+ * Version:     0.8.0
  * Author:      Aivars Lauzis
  * Text Domain: lonsda-light-form
  * Domain Path: /languages
@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('LLF_VERSION', '0.7.1');
+define('LLF_VERSION', '0.8.0');
 define('LLF_DIR', plugin_dir_path(__FILE__));
 define('LLF_URL', plugin_dir_url(__FILE__));
 define('LLF_SLUG', 'lonsda-light-form');
@@ -83,10 +83,18 @@ add_action('admin_menu', static function (): void {
         'post-new.php?post_type=' . \LonsdaLightForm\Forms::POST_TYPE
     );
 
+    // The unread count in the menu, the way WordPress shows pending anything
+    // else. Without it a stored entry is only found by going to look.
+    $llf_unread = \LonsdaLightForm\Entries::countNew();
+    $llf_label  = __('Entries', 'lonsda-light-form');
+
     add_submenu_page(
         LLF_SLUG,
-        __('Entries', 'lonsda-light-form'),
-        __('Entries', 'lonsda-light-form'),
+        $llf_label,
+        $llf_unread
+            ? $llf_label . ' <span class="update-plugins count-' . $llf_unread . '"><span class="update-count">'
+                . number_format_i18n($llf_unread) . '</span></span>'
+            : $llf_label,
         'manage_options',
         LLF_SLUG . '-entries',
         ['\LonsdaLightForm\Admin', 'renderEntries']

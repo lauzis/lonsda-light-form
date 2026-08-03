@@ -7,10 +7,22 @@ defined('ABSPATH') || exit;
 
 use LonsdaLightForm\Translations;
 
-$llf_strings   = Translations::strings();
-$llf_installed = Translations::installed();
-$llf_locales   = Translations::locales();
-$llf_current   = determine_locale();
+$llf_current     = determine_locale();
+$llf_locales     = Translations::locales();
+$llf_editing     = isset($_GET['llf_locale'])
+    ? Translations::sanitizeLocale(wp_unslash($_GET['llf_locale']))
+    : $llf_current;
+$llf_form        = isset($_GET['llf_form']) ? (int) $_GET['llf_form'] : 0;
+$llf_strings     = Translations::strings($llf_form);
+$llf_all_strings = Translations::strings();
+$llf_existing    = Translations::existing($llf_editing);
+$llf_installed   = Translations::installed();
+
+$llf_all_forms = [];
+
+foreach (\LonsdaLightForm\Forms::all() as $llf_row) {
+    $llf_all_forms[(int) $llf_row->id] = (string) $llf_row->title;
+}
 $llf_base      = admin_url('admin.php?page=' . LLF_SLUG . '-translations');
 ?>
 <div class="wrap">
@@ -38,57 +50,107 @@ $llf_base      = admin_url('admin.php?page=' . LLF_SLUG . '-translations');
         <?php esc_html_e('If WPML is running, its String Translation is used first and these files fill in anything it has no translation for.', 'lonsda-light-form'); ?>
     </p>
 
-    <h2><?php esc_html_e('1. Download the strings', 'lonsda-light-form'); ?></h2>
+    <h2><?php esc_html_e('Translate', 'lonsda-light-form'); ?></h2>
+    <p class="description">
+        <?php esc_html_e('Pick a language and a form, fill in the boxes, and save. Both a .mo and a .po are written, so the same translation can be carried on in Poedit or handed to someone else.', 'lonsda-light-form'); ?>
+    </p>
+
+    <form method="get" style="margin:12px 0;">
+        <input type="hidden" name="page" value="<?php echo esc_attr(LLF_SLUG . '-translations'); ?>">
+
+        <label for="llf_locale_pick"><?php esc_html_e('Language', 'lonsda-light-form'); ?></label>
+        <select name="llf_locale" id="llf_locale_pick">
+            <?php foreach ($llf_locales as $llf_code => $llf_label) : ?>
+                <option value="<?php echo esc_attr($llf_code); ?>" <?php selected($llf_code, $llf_editing); ?>>
+                    <?php echo esc_html($llf_label); ?>
+                </option>
+            <?php endforeach; ?>
+        </select>
+
+        <label for="llf_form_pick" style="margin-left:12px;"><?php esc_html_e('Form', 'lonsda-light-form'); ?></label>
+        <select name="llf_form" id="llf_form_pick">
+            <option value="0"><?php esc_html_e('All forms', 'lonsda-light-form'); ?></option>
+            <?php foreach ($llf_all_forms as $llf_fid => $llf_ftitle) : ?>
+                <option value="<?php echo esc_attr($llf_fid); ?>" <?php selected($llf_fid, $llf_form); ?>>
+                    <?php echo esc_html($llf_ftitle); ?>
+                </option>
+            <?php endforeach; ?>
+        </select>
+
+        <?php submit_button(__('Show', 'lonsda-light-form'), 'secondary', '', false); ?>
+    </form>
+
+    <?php if (!$llf_strings) : ?>
+        <p><em><?php esc_html_e('Nothing to translate — no form here has any fields yet.', 'lonsda-light-form'); ?></em></p>
+    <?php else : ?>
+        <form method="post" action="<?php echo esc_url($llf_base); ?>">
+            <?php wp_nonce_field('llf-translations'); ?>
+            <input type="hidden" name="llf_action" value="save">
+            <input type="hidden" name="llf_locale" value="<?php echo esc_attr($llf_editing); ?>">
+            <input type="hidden" name="llf_form" value="<?php echo esc_attr((string) $llf_form); ?>">
+
+            <table class="wp-list-table widefat striped" style="max-width:1100px;">
+                <thead>
+                    <tr>
+                        <th style="width:26%;"><?php esc_html_e('Original', 'lonsda-light-form'); ?></th>
+                        <th style="width:38%;">
+                            <?php
+                            printf(
+                                /* translators: %s: locale being edited */
+                                esc_html__('Translation (%s)', 'lonsda-light-form'),
+                                esc_html($llf_editing)
+                            );
+                            ?>
+                        </th>
+                        <th style="width:36%;"><?php esc_html_e('Key and where it is used', 'lonsda-light-form'); ?></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($llf_strings as $llf_key => $llf_entry) : ?>
+                        <tr>
+                            <td><strong><?php echo esc_html($llf_entry['text']); ?></strong></td>
+                            <td>
+                                <input type="text" class="large-text"
+                                       name="llf_tr[<?php echo esc_attr($llf_key); ?>]"
+                                       value="<?php echo esc_attr($llf_existing[$llf_key] ?? ''); ?>"
+                                       placeholder="<?php echo esc_attr($llf_entry['text']); ?>">
+                            </td>
+                            <td>
+                                <code><?php echo esc_html($llf_key); ?></code><br>
+                                <span class="description"><?php echo esc_html(implode(', ', $llf_entry['forms'])); ?></span>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+
+            <p class="description" style="max-width:840px;">
+                <?php esc_html_e('An empty box means untranslated — the original is shown instead. Clearing a box that had a translation removes it. Translations for forms not listed here are kept.', 'lonsda-light-form'); ?>
+            </p>
+
+            <?php submit_button(__('Save translations', 'lonsda-light-form')); ?>
+        </form>
+    <?php endif; ?>
+
+    <h2><?php esc_html_e('Download', 'lonsda-light-form'); ?></h2>
     <p>
         <?php
         printf(
             /* translators: %d: number of strings */
-            esc_html(_n('%d string across all forms.', '%d strings across all forms.', count($llf_strings), 'lonsda-light-form')),
-            count($llf_strings)
+            esc_html(_n('%d string across all forms.', '%d strings across all forms.', count($llf_all_strings), 'lonsda-light-form')),
+            count($llf_all_strings)
         );
         ?>
-        <?php esc_html_e('This is a snapshot — download it again after adding or renaming a field.', 'lonsda-light-form'); ?>
+        <?php esc_html_e('The POT is a snapshot of the originals, for translating outside WordPress — download it again after adding or renaming a field.', 'lonsda-light-form'); ?>
     </p>
     <p>
-        <a class="button button-primary"
+        <a class="button"
            href="<?php echo esc_url(wp_nonce_url($llf_base . '&llf_action=download', 'llf-translations')); ?>">
             <?php esc_html_e('Download POT file', 'lonsda-light-form'); ?>
         </a>
     </p>
 
-    <?php if ($llf_strings) : ?>
-        <table class="wp-list-table widefat striped" style="max-width:900px;margin-bottom:24px;">
-            <thead>
-                <tr>
-                    <th style="width:32%;"><?php esc_html_e('Translation key', 'lonsda-light-form'); ?></th>
-                    <th style="width:30%;"><?php esc_html_e('Text', 'lonsda-light-form'); ?></th>
-                    <th style="width:23%;"><?php esc_html_e('Used by', 'lonsda-light-form'); ?></th>
-                    <th style="width:15%;"><?php esc_html_e('In this language', 'lonsda-light-form'); ?></th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php foreach ($llf_strings as $llf_key => $llf_entry) : ?>
-                    <?php $llf_shown = \LonsdaLightForm\Strings::get($llf_entry['text'], $llf_key); ?>
-                    <tr>
-                        <td><code><?php echo esc_html($llf_key); ?></code></td>
-                        <td><?php echo esc_html($llf_entry['text']); ?></td>
-                        <td><?php echo esc_html(implode(', ', $llf_entry['forms'])); ?></td>
-                        <td>
-                            <?php if ($llf_shown === $llf_entry['text']) : ?>
-                                <span style="color:#999;"><?php esc_html_e('not translated', 'lonsda-light-form'); ?></span>
-                            <?php else : ?>
-                                <?php echo esc_html($llf_shown); ?>
-                            <?php endif; ?>
-                        </td>
-                    </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
-    <?php else : ?>
-        <p><em><?php esc_html_e('No forms have any fields yet, so there is nothing to translate.', 'lonsda-light-form'); ?></em></p>
-    <?php endif; ?>
-
-    <h2><?php esc_html_e('2. Upload a translation', 'lonsda-light-form'); ?></h2>
+    <h2><?php esc_html_e('Upload a translation', 'lonsda-light-form'); ?></h2>
     <p class="description">
         <?php esc_html_e('A .po is compiled to .mo on the way in, so either will do. The locale decides the file name, and it has to match the locale WordPress runs the page in — otherwise gettext never looks for it.', 'lonsda-light-form'); ?>
     </p>

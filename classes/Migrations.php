@@ -27,6 +27,9 @@ class Migrations
 
         $runner->add('0.2.0', [self::class, 'createFormsTable']);
         $runner->add('0.7.0', [self::class, 'createEntriesTable']);
+        // dbDelta adds the column to a table that already exists, so the same
+        // definition serves both a new install and an upgrade.
+        $runner->add('0.8.0', [self::class, 'createEntriesTable']);
 
         return $runner;
     }
@@ -87,9 +90,11 @@ class Migrations
                 ip varchar(100) NOT NULL DEFAULT '',
                 user_agent varchar(255) NOT NULL DEFAULT '',
                 data longtext NOT NULL,
+                status varchar(20) NOT NULL DEFAULT 'new',
                 submitted_at datetime NOT NULL DEFAULT '0000-00-00 00:00:00',
                 PRIMARY KEY  (id),
                 KEY form_id (form_id),
+                KEY status (status),
                 KEY submitted_at (submitted_at)
             ) {$collate};"
         );

@@ -8,14 +8,27 @@ defined('ABSPATH') || exit;
 use LonsdaLightForm\Entries;
 
 $llf_form_id  = isset($_GET['llf_form']) ? (int) $_GET['llf_form'] : 0;
+$llf_status   = isset($_GET['llf_status']) ? sanitize_key(wp_unslash($_GET['llf_status'])) : '';
+$llf_open     = isset($_GET['llf_entry']) ? (int) $_GET['llf_entry'] : 0;
 $llf_page     = max(1, isset($_GET['paged']) ? (int) $_GET['paged'] : 1);
 $llf_per_page = 25;
-$llf_total    = Entries::count($llf_form_id);
+
+// Marked before anything is read back, so the badge and the unread count on
+// this very page reflect the opening rather than lagging a request behind.
+if ($llf_open > 0) {
+    Entries::markViewed($llf_open);
+}
+$llf_total    = Entries::count($llf_form_id, $llf_status);
 $llf_pages    = (int) ceil($llf_total / $llf_per_page);
-$llf_rows     = Entries::all(['form_id' => $llf_form_id, 'per_page' => $llf_per_page, 'page' => $llf_page]);
+$llf_rows     = Entries::all([
+    'form_id'  => $llf_form_id,
+    'status'   => $llf_status,
+    'per_page' => $llf_per_page,
+    'page'     => $llf_page,
+]);
 $llf_forms    = Entries::formsWithEntries();
 $llf_base     = admin_url('admin.php?page=' . LLF_SLUG . '-entries');
-$llf_open     = isset($_GET['llf_entry']) ? (int) $_GET['llf_entry'] : 0;
+$llf_args     = ['llf_form' => $llf_form_id, 'llf_status' => $llf_status];
 ?>
 <div class="wrap">
     <h1 class="wp-heading-inline"><?php esc_html_e('Entries', 'lonsda-light-form'); ?></h1>
@@ -42,6 +55,22 @@ $llf_open     = isset($_GET['llf_entry']) ? (int) $_GET['llf_entry'] : 0;
                         <?php echo esc_html($llf_label); ?>
                     </option>
                 <?php endforeach; ?>
+            </select>
+
+            <select name="llf_status">
+                <option value=""><?php esc_html_e('Any status', 'lonsda-light-form'); ?></option>
+                <option value="<?php echo esc_attr(Entries::STATUS_NEW); ?>" <?php selected(Entries::STATUS_NEW, $llf_status); ?>>
+                    <?php
+                    printf(
+                        /* translators: %d: number of unread entries */
+                        esc_html__('New (%d)', 'lonsda-light-form'),
+                        Entries::countNew($llf_form_id)
+                    );
+                    ?>
+                </option>
+                <option value="<?php echo esc_attr(Entries::STATUS_VIEWED); ?>" <?php selected(Entries::STATUS_VIEWED, $llf_status); ?>>
+                    <?php esc_html_e('Viewed', 'lonsda-light-form'); ?>
+                </option>
             </select>
             <?php submit_button(__('Filter', 'lonsda-light-form'), 'secondary', '', false); ?>
         </form>
@@ -70,6 +99,7 @@ $llf_open     = isset($_GET['llf_entry']) ? (int) $_GET['llf_entry'] : 0;
             <thead>
                 <tr>
                     <th style="width:70px;"><?php esc_html_e('ID', 'lonsda-light-form'); ?></th>
+                    <th style="width:90px;"><?php esc_html_e('Status', 'lonsda-light-form'); ?></th>
                     <th style="width:20%;"><?php esc_html_e('Form', 'lonsda-light-form'); ?></th>
                     <th style="width:150px;"><?php esc_html_e('Submitted (UTC)', 'lonsda-light-form'); ?></th>
                     <th><?php esc_html_e('Summary', 'lonsda-light-form'); ?></th>
@@ -99,19 +129,34 @@ $llf_open     = isset($_GET['llf_entry']) ? (int) $_GET['llf_entry'] : 0;
                     }
 
                     $llf_is_open = $llf_open === $llf_entry['id'];
+                    $llf_is_new  = Entries::STATUS_NEW === $llf_entry['status'];
                     ?>
-                    <tr>
+                    <tr<?php echo $llf_is_new ? ' class="llf-entry--new"' : ''; ?>>
                         <td><?php echo esc_html((string) $llf_entry['id']); ?></td>
+                        <td>
+                            <?php if ($llf_is_new) : ?>
+                                <span class="llf-badge llf-badge--new"><?php esc_html_e('New', 'lonsda-light-form'); ?></span>
+                            <?php else : ?>
+                                <span class="llf-badge"><?php esc_html_e('Viewed', 'lonsda-light-form'); ?></span>
+                            <?php endif; ?>
+                        </td>
                         <td><?php echo esc_html($llf_entry['form_title']); ?></td>
                         <td><code><?php echo esc_html($llf_entry['submitted_at']); ?></code></td>
                         <td><?php echo esc_html(wp_trim_words(implode(' · ', $llf_summary), 18)); ?></td>
                         <td>
                             <a class="button button-small"
-                               href="<?php echo esc_url($llf_is_open ? $llf_base . '&llf_form=' . $llf_form_id : add_query_arg('llf_entry', $llf_entry['id'], $llf_base . '&llf_form=' . $llf_form_id)); ?>">
+                               href="<?php echo esc_url($llf_is_open ? add_query_arg($llf_args, $llf_base) : add_query_arg($llf_args + ['llf_entry' => $llf_entry['id']], $llf_base)); ?>">
                                 <?php echo $llf_is_open ? esc_html__('Hide', 'lonsda-light-form') : esc_html__('View', 'lonsda-light-form'); ?>
                             </a>
+                            <?php if (!$llf_is_new) : ?>
+                                <?php // For a row opened by mistake, so it can go back on the pile. ?>
+                                <a class="button button-small"
+                                   href="<?php echo esc_url(wp_nonce_url(add_query_arg($llf_args + ['llf_action' => 'unread', 'llf_entry' => $llf_entry['id']], $llf_base), 'llf-entries')); ?>">
+                                    <?php esc_html_e('Mark unread', 'lonsda-light-form'); ?>
+                                </a>
+                            <?php endif; ?>
                             <a class="button button-small"
-                               href="<?php echo esc_url(wp_nonce_url($llf_base . '&llf_action=delete&llf_entry=' . $llf_entry['id'] . '&llf_form=' . $llf_form_id, 'llf-entries')); ?>"
+                               href="<?php echo esc_url(wp_nonce_url(add_query_arg($llf_args + ['llf_action' => 'delete', 'llf_entry' => $llf_entry['id']], $llf_base), 'llf-entries')); ?>"
                                onclick="return confirm('<?php echo esc_js(__('Delete this entry? This cannot be undone.', 'lonsda-light-form')); ?>');">
                                 <?php esc_html_e('Delete', 'lonsda-light-form'); ?>
                             </a>
@@ -119,7 +164,7 @@ $llf_open     = isset($_GET['llf_entry']) ? (int) $_GET['llf_entry'] : 0;
                     </tr>
                     <?php if ($llf_is_open) : ?>
                         <tr>
-                            <td colspan="5" style="background:#fbfbfb;">
+                            <td colspan="6" style="background:#fbfbfb;">
                                 <table class="widefat striped" style="margin:8px 0;">
                                     <tbody>
                                         <?php foreach ($llf_entry['fields'] as $llf_field) : ?>
@@ -173,7 +218,7 @@ $llf_open     = isset($_GET['llf_entry']) ? (int) $_GET['llf_entry'] : 0;
             <div class="tablenav"><div class="tablenav-pages">
                 <?php
                 echo paginate_links([
-                    'base'      => add_query_arg('paged', '%#%', $llf_base . '&llf_form=' . $llf_form_id),
+                    'base'      => add_query_arg('paged', '%#%', add_query_arg($llf_args, $llf_base)),
                     'format'    => '',
                     'current'   => $llf_page,
                     'total'     => $llf_pages,
@@ -185,3 +230,9 @@ $llf_open     = isset($_GET['llf_entry']) ? (int) $_GET['llf_entry'] : 0;
         <?php endif; ?>
     <?php endif; ?>
 </div>
+
+<style>
+    .llf-badge { display:inline-block; padding:2px 8px; border-radius:9px; font-size:11px; background:#f0f0f1; color:#50575e; }
+    .llf-badge--new { background:#d63638; color:#fff; font-weight:600; }
+    .llf-entry--new td { font-weight:600; }
+</style>

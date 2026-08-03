@@ -101,9 +101,22 @@ than when one is rendered — a translator should see a string before anyone has
 visited the page it appears on.
 
 **Gettext files**, for everyone else. `wp i18n make-pot` scans source and these
-strings are rows in a table, so **Lonsda Forms → Translations** generates the
-POT instead: download it, translate it in Poedit or anything else, upload the
-result. A `.po` is compiled to `.mo` on the way in, so either will do.
+strings are rows in a table, so nothing can discover them — **Lonsda Forms →
+Translations** works from the stored forms instead.
+
+Translate in the browser: pick a language and a form, fill in the boxes, save.
+Both a `.mo` and a `.po` are written, so a translation started here can be
+carried on in Poedit or handed to someone else, and one done elsewhere can be
+uploaded back. A `.po` is compiled to `.mo` on the way in, so either will do.
+
+Saving merges rather than replaces. The editor shows one form at a time, so
+treating a save as "these are all the translations there are" would wipe every
+other form's work. An emptied box removes that translation rather than storing
+an empty one, which gettext would treat as untranslated anyway while leaving a
+misleading entry in the file. A key whose original no longer exists is dropped —
+there is nothing left for it to translate.
+
+The POT download is still there for translating outside WordPress entirely.
 
 Files live in `wp-content/languages/lonsda-light-form/`, not in the plugin
 folder — WordPress replaces that folder on every update and would take the
@@ -135,8 +148,18 @@ and everything else was pushing it off the screen.
 ## Entries
 
 Submissions are stored in `{prefix}llf_entries` and listed under **Lonsda Forms
-→ Entries**: filter by form, expand one to see every answer plus the page,
-language, IP and user agent, delete individually, or download the lot as CSV.
+→ Entries**: filter by form or status, expand one to see every answer plus the
+page, language, IP and user agent, delete individually, or download the lot as
+CSV.
+
+An entry arrives **New** and becomes **Viewed** when it is opened — opening it
+is the only evidence of being read that exists, so that is what marks it. The
+count of unread ones sits in the admin menu the way WordPress shows anything
+else pending; without it a stored entry is only found by going to look. A row
+opened by mistake can be marked unread again.
+
+The status is written before the page reads its rows back, so the badge and the
+count reflect the click that caused them rather than lagging a request behind.
 
 Keeping them is on by default. A notification that never arrives is otherwise a
 lost enquiry, and mail is the part most likely to break quietly. It can be
@@ -161,11 +184,20 @@ nobody chose. Clearing the field sends nothing.
 - Several addresses, separated by commas. Anything that is not an address is
   dropped rather than handed to `wp_mail()`, where one bad entry can lose the
   whole send.
-- `{form_title}` and `{site_name}` are replaced when the mail is sent. The
-  subject is a placeholder rather than the title itself because a default is
-  fixed when the field is registered and has no form to ask — this way it keeps
-  up with a form that is later renamed. An empty subject falls back to
-  `New submission: <form title>`.
+- Both the subject and the message accept placeholders. **Any field can be used
+  by its Name** — a field named `surname` becomes `{surname}`. That is the Name,
+  not the Label. A blank answer comes out as nothing; a checkbox as Yes or No.
+- `{all_fields}` expands to every field and its answer, one per line, in form
+  order. Leave the message empty and that is what you get, wrapped in the
+  metadata below.
+- Also available: `{form_title}`, `{site_name}`, `{site_url}`, `{submitted_at}`,
+  `{page_title}`, `{page_url}`, `{language}`, `{ip}`, `{user_agent}`. A field
+  whose Name matches one of these does not displace it — the fixed set has to
+  mean the same thing on every form.
+- The subject default is `{form_title}` rather than the title itself because a
+  field default is fixed when the field is registered and has no form to ask.
+  It also keeps up with a form that is later renamed. An empty subject falls
+  back to `New submission: <form title>`.
 - Naming a field in **Reply-To field** makes replies go to whoever submitted it.
 - The message is plain text — it is read, not designed, and plain text cannot
   render wrongly or be held back as suspicious markup.

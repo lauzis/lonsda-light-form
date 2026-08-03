@@ -109,6 +109,30 @@ class Admin
             exit;
         }
 
+        if ('save' === $action) {
+            check_admin_referer('llf-translations');
+
+            $pairs = [];
+
+            if (isset($_POST['llf_tr']) && is_array($_POST['llf_tr'])) {
+                foreach (wp_unslash($_POST['llf_tr']) as $key => $value) {
+                    // Not sanitize_text_field: a translation is prose and may
+                    // legitimately contain characters that would strip.
+                    $pairs[sanitize_key($key)] = wp_check_invalid_utf8((string) $value);
+                }
+            }
+
+            $result = \LonsdaLightForm\Translations::save(
+                isset($_POST['llf_locale']) ? sanitize_text_field(wp_unslash($_POST['llf_locale'])) : '',
+                $pairs
+            );
+
+            self::redirectWithNotice($result, [
+                'llf_locale' => isset($_POST['llf_locale']) ? sanitize_text_field(wp_unslash($_POST['llf_locale'])) : '',
+                'llf_form'   => isset($_POST['llf_form']) ? (int) $_POST['llf_form'] : 0,
+            ]);
+        }
+
         if ('upload' === $action) {
             check_admin_referer('llf-translations');
 
@@ -134,13 +158,18 @@ class Admin
 
     /**
      * @param true|\WP_Error $result
+     * @param array          $keep Query args to carry back, so the editor
+     *                             reopens where it was left.
      */
-    private static function redirectWithNotice($result): void
+    private static function redirectWithNotice($result, array $keep = []): void
     {
         $url = add_query_arg(
-            is_wp_error($result)
-                ? ['llf_error' => rawurlencode($result->get_error_message())]
-                : ['llf_done' => 1],
+            array_merge(
+                $keep,
+                is_wp_error($result)
+                    ? ['llf_error' => rawurlencode($result->get_error_message())]
+                    : ['llf_done' => 1]
+            ),
             admin_url('admin.php?page=' . LLF_SLUG . '-translations')
         );
 
@@ -176,12 +205,23 @@ class Admin
             exit;
         }
 
-        if ('delete' === $action) {
-            \LonsdaLightForm\Entries::delete(isset($_GET['llf_entry']) ? (int) $_GET['llf_entry'] : 0);
+        $status = isset($_GET['llf_status']) ? sanitize_key(wp_unslash($_GET['llf_status'])) : '';
+        $entry  = isset($_GET['llf_entry']) ? (int) $_GET['llf_entry'] : 0;
+
+        if ('delete' === $action || 'unread' === $action) {
+            if ('delete' === $action) {
+                \LonsdaLightForm\Entries::delete($entry);
+            } else {
+                \LonsdaLightForm\Entries::setStatus($entry, \LonsdaLightForm\Entries::STATUS_NEW);
+            }
 
             wp_safe_redirect(
                 add_query_arg(
-                    ['llf_done' => 1, 'llf_form' => $form_id],
+                    [
+                        'llf_done'   => 1,
+                        'llf_form'   => $form_id,
+                        'llf_status' => $status,
+                    ],
                     admin_url('admin.php?page=' . LLF_SLUG . '-entries')
                 )
             );

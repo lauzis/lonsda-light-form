@@ -177,6 +177,10 @@ class FormBuilder
                 ->set_default_value(self::defaultNotifySubject())
                 ->set_help_text(__('{form_title} and {site_name} are replaced when the mail is sent. Leave empty for "New submission: <form title>".', 'lonsda-light-form')),
 
+            Field::make('textarea', 'llf_notify_message', __('Message', 'lonsda-light-form'))
+                ->set_rows(8)
+                ->set_help_text(__('Leave empty to list every field and its answer. Otherwise write your own: {field_name} is replaced by that field\'s answer, and {all_fields} by the whole list. See Help for everything available.', 'lonsda-light-form')),
+
             Field::make('text', 'llf_notify_reply_to', __('Reply-To field', 'lonsda-light-form'))
                 ->set_help_text(__('The Name of a field collecting an email address — the notification then replies to whoever submitted it. Leave empty for none.', 'lonsda-light-form')),
 
@@ -454,6 +458,7 @@ class FormBuilder
             'submit_key'      => $submitKey,
             'notify_to'       => self::meta($post_id, 'llf_notify_to'),
             'notify_subject'  => self::meta($post_id, 'llf_notify_subject'),
+            'notify_message'  => self::meta($post_id, 'llf_notify_message'),
             'notify_reply_to' => self::meta($post_id, 'llf_notify_reply_to'),
             'store_entries'   => function_exists('carbon_get_post_meta')
                 ? (bool) carbon_get_post_meta($post_id, 'llf_store_entries')

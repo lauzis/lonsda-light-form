@@ -374,41 +374,77 @@ class Translations
     }
 
     /**
-     * Locales worth offering, so the file gets the name gettext will look for.
+     * Locales worth offering, so a file gets the name gettext will look for.
+     *
+     * A translation plugin, where there is one, is the authority: it decides
+     * which locale each page is served as, and that is the only name a file can
+     * usefully have. WordPress's own installed-translations list is a fallback
+     * for sites without one — used *instead of*, not as well as.
+     *
+     * Offering both produced two Latvians on a WPML site: lv_LV from WPML,
+     * which is what pages are actually served as, and a bare lv from a language
+     * pack that happened to be installed. Naming a file after the second would
+     * have looked right and never been loaded.
      *
      * @return array<string, string> Locale => label.
      */
     public static function locales(): array
+    {
+        $locales = self::fromTranslationPlugin();
+
+        if (!$locales) {
+            foreach (get_available_languages() as $locale) {
+                $locales[$locale] = $locale;
+            }
+        }
+
+        $current = determine_locale();
+
+        if ($current && !isset($locales[$current])) {
+            $locales[$current] = $current;
+        }
+
+        if ($current && isset($locales[$current])) {
+            $locales[$current] .= ' — ' . __('serving this page', 'lonsda-light-form');
+        }
+
+        asort($locales);
+
+        return $locales;
+    }
+
+    /**
+     * Languages as reported by WPML or Polylang.
+     *
+     * @return array<string, string> Locale => label.
+     */
+    private static function fromTranslationPlugin(): array
     {
         $locales = [];
         $active  = apply_filters('wpml_active_languages', null);
 
         if (is_array($active)) {
             foreach ($active as $language) {
-                if (!empty($language['default_locale'])) {
-                    $locales[$language['default_locale']] = ($language['translated_name'] ?? $language['default_locale'])
-                        . ' (' . $language['default_locale'] . ')';
+                if (empty($language['default_locale'])) {
+                    continue;
                 }
+
+                $locale             = (string) $language['default_locale'];
+                $name               = (string) ($language['translated_name'] ?? $language['english_name'] ?? $locale);
+                $locales[$locale]   = $name . ' (' . $locale . ')';
             }
         }
 
-        if (function_exists('pll_languages_list')) {
-            foreach ((array) pll_languages_list(['fields' => 'locale']) as $locale) {
-                $locales[$locale] = $locale;
+        if (!$locales && function_exists('pll_languages_list')) {
+            $names   = (array) pll_languages_list(['fields' => 'name']);
+            $codes   = (array) pll_languages_list(['fields' => 'locale']);
+
+            foreach ($codes as $i => $locale) {
+                $locales[(string) $locale] = isset($names[$i])
+                    ? $names[$i] . ' (' . $locale . ')'
+                    : (string) $locale;
             }
         }
-
-        foreach (get_available_languages() as $locale) {
-            $locales[$locale] = $locales[$locale] ?? $locale;
-        }
-
-        $current = determine_locale();
-
-        if ($current) {
-            $locales[$current] = $locales[$current] ?? $current;
-        }
-
-        ksort($locales);
 
         return $locales;
     }

@@ -285,7 +285,7 @@ $llf_settings_url    = admin_url('admin.php?page=' . LLF_SLUG . '-settings');
         <li><?php esc_html_e('An empty box means untranslated, and the original wording is shown instead. Nothing ever renders as a bare key.', 'lonsda-light-form'); ?></li>
         <li><?php esc_html_e('Clearing a box that had a translation removes it.', 'lonsda-light-form'); ?></li>
         <li><?php esc_html_e('Saving one form does not disturb translations for another — only what is on screen is changed, and the rest of the file is kept.', 'lonsda-light-form'); ?></li>
-        <li><?php esc_html_e('The language list offers whatever the site has: the languages from WPML or Polylang if either is running, plus any WordPress translations installed.', 'lonsda-light-form'); ?></li>
+        <li><?php esc_html_e('The language list comes from WPML or Polylang when one of them is running, since the translation plugin decides which locale a page is served as — and that is the only name a translation file can usefully have. Without either, WordPress\'s own installed translations are offered instead. The locale currently serving the page is marked, so a file that would never be looked for is easy to avoid naming.', 'lonsda-light-form'); ?></li>
     </ul>
     <p style="max-width:860px;">
         <?php

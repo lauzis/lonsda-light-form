@@ -32,7 +32,6 @@ class Transfer
      */
     private const FORM_KEYS = [
         'submit_label'    => 'llf_submit_label',
-        'submit_key'      => 'llf_submit_translation_key',
         'success_message' => 'llf_success_message',
         'hide_on_success' => 'llf_hide_on_success',
         'notify_to'       => 'llf_notify_to',
@@ -213,8 +212,6 @@ class Transfer
                 continue;
             }
 
-            $key = (string) ($field['translation_key'] ?? '');
-
             $rows[] = [
                 'label'           => (string) ($field['label'] ?? ''),
                 'name'            => (string) ($field['name'] ?? ''),
@@ -225,13 +222,9 @@ class Transfer
                 'validation'      => (string) ($field['validation'] ?? ''),
                 'pattern'         => (string) ($field['pattern'] ?? ''),
                 'max_length'      => (string) ($field['max_length'] ?? ''),
-                'translation_key' => $key,
-                // Carried across so a key someone chose stays chosen. Without
-                // it the importing site would treat every key as generated and
-                // rewrite it the first time a field was renamed.
-                'translation_key_auto' => FormBuilder::generatedFieldKey((string) ($field['name'] ?? '')) === $key
-                    ? $key
-                    : '',
+                // Translation keys are not carried: they are derived from the
+                // field name, so the importing site works them out for itself
+                // and an exported one could only ever disagree with it.
             ];
         }
 

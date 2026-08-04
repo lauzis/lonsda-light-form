@@ -70,6 +70,7 @@ class Strings
     {
         foreach ($settings['fields'] ?? [] as $field) {
             self::registerOne((string) ($field['translation_key'] ?? ''), (string) ($field['label'] ?? ''));
+            self::registerOne((string) ($field['placeholder_key'] ?? ''), (string) ($field['placeholder'] ?? ''));
         }
 
         self::registerOne(

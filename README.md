@@ -227,25 +227,55 @@ Labels, the submit button and the confirmation are typed into the editor, so
 they are not in the `.pot` file and gettext cannot reach them. Each string
 carries a translation key instead.
 
-Keys are generated from the field name — a field named `email` gets
-`field_email_label` — and stay in step with it. Rename the field and the key
-follows.
+Keys are derived from the field name and cannot be edited: a field named `email`
+gets `field_email_label` for its label and `field_email_placeholder` for its
+hint. Rename the field and both follow.
 
-Edit a key and it stops following. That is the point: a key you chose is a key
-something else may already refer to, so renaming the field must not silently
-change it. The plugin can tell the two apart because it records what it last
-generated alongside the key; a key that still matches that record is one nobody
-has touched. Clearing the box hands it back to automatic.
-
-The submit button works the same way, keyed from the form slug as
-`form_{slug}_submit`, and its wording is editable per form.
+An editable key was one more box on every field to serve a case almost nobody
+has, and a key nobody can change cannot drift from the field it names — so there
+is nothing to fill in and nothing to keep in step.
 
 ```
-name: email        →  field_email_label        follows the name
-name: email        →  contact_email            edited, so left alone
-rename to mail     →  contact_email            still left alone
-clear the box      →  field_mail_label         back under automatic control
+name: email        →  field_email_label,  field_email_placeholder
+rename to mail     →  field_mail_label,   field_mail_placeholder
 ```
+
+A field with no placeholder contributes no placeholder string. That is a field
+without one, not a string waiting to be translated.
+
+The submit button is keyed `form_submit` — one key for every form on the site,
+because "Send" is "Send" everywhere and a key per form would mean translating
+the same word once for each. Its wording stays editable per form; only the
+translation is shared.
+
+Two forms with a field named alike likewise share a translation, which is
+usually right. Give a field a distinct name where it should read differently.
+
+### Two ways to run a form in several languages
+
+Both are supported and nothing links a form to a language, so the choice is per
+form — a shared contact form translated once, and a campaign form written
+separately per language, can coexist.
+
+| One form, translated | A separate form per language |
+| --- | --- |
+| Labels, placeholders and button written in English, translated under Translations. One form on every language version of the page. | One form per language, each written in that language, each on its own page. |
+| Entries land together with the language recorded on each — one list, filterable. | Entries separated by form, convenient when different people handle each language. |
+| Add a field once, then translate it. | Add the field to every form; forgetting one is easy. |
+| Notification recipients and wording shared. | Each language can notify different people, with its own subject and message. |
+| Fields named alike share a translation, so `Email` is translated once site-wide. | No translation step at all. |
+
+**Taking the translated route, write the originals in English.** They are what a
+translator is shown and what a visitor sees when no translation exists for their
+language. Nothing enforces it, and a form written in Latvian works — but
+changing your mind later means retyping every label, and any translation
+pointing at the old wording is orphaned.
+
+**Taking the separate-forms route, ignore Translations entirely.** A form whose
+labels are already in the right language needs no keys.
+
+On a multilingual site the form editor says this once, dismissibly, because the
+decision is cheap now and expensive later.
 
 ### Delivering the translations
 

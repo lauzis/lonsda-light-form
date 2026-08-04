@@ -140,6 +140,21 @@ class Tests
         $keys = array_column($form['settings']['fields'], 'translation_key');
         self::assert(implode(', ', $keys), ['field_full_name_label', 'field_notes_label'] === $keys);
 
+        self::title(__('Placeholders get a key of their own', 'lonsda-light-form'));
+        $keys = array_column($form['settings']['fields'], 'placeholder_key');
+        self::assert(implode(', ', $keys), ['field_full_name_placeholder', 'field_notes_placeholder'] === $keys);
+
+        self::title(__('Renaming a field renames both keys', 'lonsda-light-form'));
+        // Nothing to keep in step by hand now that neither key is editable.
+        self::setFields($post_id, [['label' => 'Full name', 'name' => 'given_name', 'type' => 'text']]);
+        Forms::syncToTable($post_id, get_post($post_id));
+        $renamed = Forms::get($form_id)['settings']['fields'][0] ?? [];
+        self::assert(
+            ($renamed['translation_key'] ?? '?') . ', ' . ($renamed['placeholder_key'] ?? '?'),
+            'field_given_name_label' === ($renamed['translation_key'] ?? '')
+                && 'field_given_name_placeholder' === ($renamed['placeholder_key'] ?? '')
+        );
+
         self::title(__('Editing the form updates the same row', 'lonsda-light-form'));
         self::setFields($post_id, [['label' => 'Only one', 'name' => 'only_one', 'type' => 'text']]);
         Forms::syncToTable($post_id, get_post($post_id));
@@ -629,6 +644,37 @@ class Tests
         $key     = FormBuilder::generatedFieldKey('given_name');
         $other   = FormBuilder::generatedFieldKey('message');
 
+        self::title(__('A placeholder is collected as its own string', 'lonsda-light-form'));
+        self::setFields($post_id, [
+            ['label' => 'Given name', 'name' => 'given_name', 'type' => 'text', 'placeholder' => 'e.g. Anna'],
+            ['label' => 'Message', 'name' => 'message', 'type' => 'textarea'],
+        ]);
+        Forms::syncToTable($post_id, get_post($post_id));
+
+        $withPlaceholder = FormBuilder::generatedPlaceholderKey('given_name');
+        $noPlaceholder   = FormBuilder::generatedPlaceholderKey('message');
+        $all             = Translations::strings();
+
+        self::assert(
+            'the one with a placeholder is offered, the one without is not',
+            isset($all[$withPlaceholder]) && !isset($all[$noPlaceholder]),
+            array_keys($all)
+        );
+
+        self::title(__('A translated placeholder reaches the rendered input', 'lonsda-light-form'));
+        Translations::save(self::TEST_LOCALE, [$withPlaceholder => 'piem. Anna']);
+        unload_textdomain(Translations::DOMAIN);
+        load_textdomain(Translations::DOMAIN, Translations::path(self::TEST_LOCALE));
+        $html = Renderer::form($form_id);
+        unload_textdomain(Translations::DOMAIN);
+        Translations::load();
+
+        self::assert(
+            'the input carries the translated hint',
+            false !== strpos($html, 'placeholder="piem. Anna"'),
+            $html
+        );
+
         self::title(__('The form\'s strings are collected', 'lonsda-light-form'));
         $strings = Translations::strings();
         self::assert(
@@ -648,6 +694,15 @@ class Tests
         self::assert(
             'msgctxt is the key, msgid is the label',
             self::hasAll($pot, ['msgctxt "' . $key . '"', 'msgid "Given name"', 'Content-Type: text/plain; charset=UTF-8'])
+        );
+
+        self::title(__('The submit button shares one key across every form', 'lonsda-light-form'));
+        // Not per form: "Send" is "Send" everywhere, and a key per form would
+        // mean translating the same word once for each of them.
+        self::assert(
+            FormBuilder::generatedSubmitKey(),
+            'form_submit' === FormBuilder::generatedSubmitKey()
+                && FormBuilder::generatedSubmitKey() === (Forms::get($form_id)['settings']['submit_key'] ?? '')
         );
 
         self::title(__('Saving writes both a .mo and a .po', 'lonsda-light-form'));

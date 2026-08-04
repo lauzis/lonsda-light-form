@@ -152,7 +152,10 @@ class Renderer
         }
 
         if (!empty($field['placeholder'])) {
-            $attrs['placeholder'] = (string) $field['placeholder'];
+            $attrs['placeholder'] = Strings::get(
+                (string) $field['placeholder'],
+                (string) ($field['placeholder_key'] ?? '')
+            );
         }
 
         if (!empty($field['max_length'])) {

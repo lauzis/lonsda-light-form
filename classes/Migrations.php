@@ -33,6 +33,9 @@ class Migrations
         $runner->add('0.10.0', [self::class, 'reprojectForms']);
         // dbDelta adds the locale column to a table that already exists.
         $runner->add('0.12.0', [self::class, 'createEntriesTable']);
+        // Definitions written before placeholders were translatable have no
+        // key for them; rebuilding derives one from the field name.
+        $runner->add('0.14.0', [self::class, 'reprojectForms']);
 
         return $runner;
     }

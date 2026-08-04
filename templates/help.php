@@ -247,27 +247,73 @@ $llf_settings_url    = admin_url('admin.php?page=' . LLF_SLUG . '-settings');
         <?php esc_html_e('Labels, the submit button and the confirmation are typed into the form editor, so they live in the database rather than in the plugin. The tools that normally collect translatable text scan source files and cannot see them. Each string therefore carries a key of its own.', 'lonsda-light-form'); ?>
     </p>
 
-    <h3><?php esc_html_e('Where the keys come from', 'lonsda-light-form'); ?></h3>
+    <h3><?php esc_html_e('Two ways to run a form in several languages', 'lonsda-light-form'); ?></h3>
     <p style="max-width:860px;">
-        <?php esc_html_e('A key is filled in from the field name: a field named email gets field_email_label. It keeps in step with the name, so renaming the field renames the key and nothing has to be tidied up by hand.', 'lonsda-light-form'); ?>
+        <?php esc_html_e('Both work. Which suits you depends on whether the languages are saying the same thing.', 'lonsda-light-form'); ?>
+    </p>
+
+    <table class="widefat striped" style="max-width:900px;margin-bottom:16px;">
+        <thead>
+            <tr>
+                <th style="width:50%;"><?php esc_html_e('One form, translated', 'lonsda-light-form'); ?></th>
+                <th><?php esc_html_e('A separate form per language', 'lonsda-light-form'); ?></th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><?php esc_html_e('Write the labels, placeholders and button in English. Translate them under Translations. Place the one form on every language version of the page.', 'lonsda-light-form'); ?></td>
+                <td><?php esc_html_e('Build a form per language, each written in that language. Place each one on its own language version of the page.', 'lonsda-light-form'); ?></td>
+            </tr>
+            <tr>
+                <td><?php esc_html_e('Entries land together, with the language recorded on each. One list to read, filterable by language.', 'lonsda-light-form'); ?></td>
+                <td><?php esc_html_e('Entries are separated by form, which is convenient if different people handle each language.', 'lonsda-light-form'); ?></td>
+            </tr>
+            <tr>
+                <td><?php esc_html_e('Adding a field means adding it once, then translating it.', 'lonsda-light-form'); ?></td>
+                <td><?php esc_html_e('Adding a field means adding it to every form, and forgetting one is easy.', 'lonsda-light-form'); ?></td>
+            </tr>
+            <tr>
+                <td><?php esc_html_e('Notification recipients and wording are shared. One inbox, one template.', 'lonsda-light-form'); ?></td>
+                <td><?php esc_html_e('Each language can notify different people, with its own subject and message.', 'lonsda-light-form'); ?></td>
+            </tr>
+            <tr>
+                <td><?php esc_html_e('Fields named the same way share a translation across forms, so "Email" is translated once for the whole site.', 'lonsda-light-form'); ?></td>
+                <td><?php esc_html_e('No translation step at all — what you type is what is shown.', 'lonsda-light-form'); ?></td>
+            </tr>
+        </tbody>
+    </table>
+
+    <p style="max-width:860px;">
+        <strong><?php esc_html_e('If you take the translated route, write the originals in English.', 'lonsda-light-form'); ?></strong>
+        <?php esc_html_e('They are what a translator is shown and what a visitor sees when no translation exists for their language. Nothing enforces this and a form written in Latvian works — but changing your mind later means retyping every label, and any translation pointing at the old wording is orphaned when you do.', 'lonsda-light-form'); ?>
     </p>
     <p style="max-width:860px;">
-        <?php esc_html_e('Change a key yourself and it stops following. That is deliberate — a key you chose may already be referred to somewhere else, so a later rename must not quietly change it out from under you. Clearing the box hands it back to automatic control and it is regenerated from the current name.', 'lonsda-light-form'); ?>
+        <?php esc_html_e('If you take the separate-forms route, ignore Translations entirely. Nothing there applies, and a form whose labels are already in the right language needs no keys.', 'lonsda-light-form'); ?>
+    </p>
+    <p style="max-width:860px;">
+        <?php esc_html_e('The two can be mixed: a shared contact form translated once, and a campaign form written separately per language. Nothing links a form to a language, so the choice is per form.', 'lonsda-light-form'); ?>
+    </p>
+
+    <h3><?php esc_html_e('Where the keys come from', 'lonsda-light-form'); ?></h3>
+    <p style="max-width:860px;">
+        <?php esc_html_e('A key is worked out from the field name: a field named email gets field_email_label for its label and field_email_placeholder for its hint. Rename the field and both follow. There is nothing to fill in and nothing to keep in step — a key you cannot edit cannot drift from the field it names.', 'lonsda-light-form'); ?>
     </p>
     <table class="widefat striped" style="max-width:860px;margin-bottom:20px;">
         <thead>
             <tr>
-                <th style="width:30%;"><?php esc_html_e('What you do', 'lonsda-light-form'); ?></th>
-                <th><?php esc_html_e('What the key does', 'lonsda-light-form'); ?></th>
+                <th style="width:36%;"><?php esc_html_e('What is translated', 'lonsda-light-form'); ?></th>
+                <th><?php esc_html_e('Key', 'lonsda-light-form'); ?></th>
             </tr>
         </thead>
         <tbody>
-            <tr><td><?php esc_html_e('Name a field "email"', 'lonsda-light-form'); ?></td><td><code>field_email_label</code></td></tr>
-            <tr><td><?php esc_html_e('Rename it to "mail"', 'lonsda-light-form'); ?></td><td><code>field_mail_label</code> — <?php esc_html_e('follows', 'lonsda-light-form'); ?></td></tr>
-            <tr><td><?php esc_html_e('Type your own key', 'lonsda-light-form'); ?></td><td><?php esc_html_e('kept, and left alone from then on', 'lonsda-light-form'); ?></td></tr>
-            <tr><td><?php esc_html_e('Clear the box', 'lonsda-light-form'); ?></td><td><?php esc_html_e('back to automatic, regenerated from the name', 'lonsda-light-form'); ?></td></tr>
+            <tr><td><?php esc_html_e('A field\'s label', 'lonsda-light-form'); ?></td><td><code>field_&lt;name&gt;_label</code></td></tr>
+            <tr><td><?php esc_html_e('Its placeholder, when it has one', 'lonsda-light-form'); ?></td><td><code>field_&lt;name&gt;_placeholder</code></td></tr>
+            <tr><td><?php esc_html_e('The submit button', 'lonsda-light-form'); ?></td><td><code>form_submit</code> — <?php esc_html_e('one key for every form, since "Send" is "Send" everywhere', 'lonsda-light-form'); ?></td></tr>
         </tbody>
     </table>
+    <p style="max-width:860px;">
+        <?php esc_html_e('Two forms with a field named the same way therefore share a translation, which is usually what you want — "Email" is "Email" everywhere. Give a field a distinct name where it should read differently.', 'lonsda-light-form'); ?>
+    </p>
 
     <h3><?php esc_html_e('Translating them here', 'lonsda-light-form'); ?></h3>
     <p style="max-width:860px;">

@@ -247,6 +247,10 @@ class Translations
 
             foreach ($settings['fields'] ?? [] as $field) {
                 self::collect($strings, (string) ($field['translation_key'] ?? ''), (string) ($field['label'] ?? ''), $title);
+                // collect() ignores an empty string, so a field with no
+                // placeholder simply does not appear — which is right: that is
+                // a field without one, not a string waiting to be translated.
+                self::collect($strings, (string) ($field['placeholder_key'] ?? ''), (string) ($field['placeholder'] ?? ''), $title);
             }
 
             self::collect(

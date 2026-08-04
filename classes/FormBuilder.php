@@ -93,14 +93,6 @@ class FormBuilder
                         ->set_attribute('type', 'number')
                         ->set_attribute('min', '0')
                         ->set_help_text(__('Longest accepted value, in characters. Leave blank for no limit.', 'lonsda-light-form')),
-
-                    Field::make('text', 'translation_key', __('Translation key', 'lonsda-light-form'))
-                        ->set_help_text(__('Identifies this label for translation. Filled in from the name and kept in step with it — until you change it, after which it is left alone. Clear it to go back to the generated one.', 'lonsda-light-form')),
-
-                    // Remembers what was last generated, which is the only way
-                    // to tell "the name changed, so regenerate" apart from
-                    // "someone chose this key, so leave it alone".
-                    Field::make('hidden', 'translation_key_auto'),
                 ])
                 // Collapsed, so a form with a dozen fields opens as a list of
                 // labels rather than a wall of inputs. The header template is
@@ -132,11 +124,6 @@ class FormBuilder
             Field::make('text', 'llf_submit_label', __('Submit button text', 'lonsda-light-form'))
                 ->set_default_value(self::defaultSubmitLabel())
                 ->set_help_text(__('Wording on the button. Leave empty for the default.', 'lonsda-light-form')),
-
-            Field::make('text', 'llf_submit_translation_key', __('Translation key', 'lonsda-light-form'))
-                ->set_help_text(__('Filled in from the form title and kept in step with it, unless you change it. Clear it to go back to the generated one.', 'lonsda-light-form')),
-
-            Field::make('hidden', 'llf_submit_translation_key_auto'),
         ];
 
         $confirmationTab = [
@@ -200,62 +187,6 @@ class FormBuilder
             ->add_tab(__('Protection', 'lonsda-light-form'), $protectionTab);
     }
 
-    /**
-     * Stores the resolved keys back on the post, so the editor shows them.
-     *
-     * Without this the boxes stay as they were typed — empty for a new field —
-     * and the key a form is actually using would only be visible by reading the
-     * table. Only the key columns are touched; the rest of each row is left as
-     * the editor saved it.
-     *
-     * @param array<int, array{translation_key: string, translation_key_auto: string}> $keys
-     */
-    private static function writeBackKeys(int $post_id, array $keys, string $submitKey, string $submitKeyAuto): void
-    {
-        if (!function_exists('carbon_get_post_meta') || !function_exists('carbon_set_post_meta')) {
-            return;
-        }
-
-        $rows    = carbon_get_post_meta($post_id, 'llf_fields');
-        $rows    = is_array($rows) ? $rows : [];
-        $changed = false;
-
-        // $keys is built in the same pass that builds the definition, which
-        // skips rows with no label — so it is indexed independently of $rows.
-        $i = 0;
-
-        foreach ($rows as $index => $row) {
-            if ('' === trim((string) ($row['label'] ?? ''))) {
-                continue;
-            }
-
-            if (!isset($keys[$i])) {
-                break;
-            }
-
-            foreach ($keys[$i] as $column => $value) {
-                if ((string) ($row[$column] ?? '') !== $value) {
-                    $rows[$index][$column] = $value;
-                    $changed               = true;
-                }
-            }
-
-            $i++;
-        }
-
-        if ($changed) {
-            carbon_set_post_meta($post_id, 'llf_fields', $rows);
-        }
-
-        if ((string) carbon_get_post_meta($post_id, 'llf_submit_translation_key') !== $submitKey) {
-            carbon_set_post_meta($post_id, 'llf_submit_translation_key', $submitKey);
-        }
-
-        if ((string) carbon_get_post_meta($post_id, 'llf_submit_translation_key_auto') !== $submitKeyAuto) {
-            carbon_set_post_meta($post_id, 'llf_submit_translation_key_auto', $submitKeyAuto);
-        }
-    }
-
     /** A trimmed string from post meta, or '' when Carbon Fields is absent. */
     private static function meta(int $post_id, string $key): string
     {
@@ -287,42 +218,31 @@ class FormBuilder
         return __('Send', 'lonsda-light-form');
     }
 
-    /** The key a field's label gets when nobody has chosen one. */
+    /** The key a field's label is translated by. */
     public static function generatedFieldKey(string $name): string
     {
         return 'field_' . $name . '_label';
     }
 
-    /** The key a form's submit button gets when nobody has chosen one. */
-    public static function generatedSubmitKey(string $slug): string
+    /** The key a field's placeholder is translated by. */
+    public static function generatedPlaceholderKey(string $name): string
     {
-        return 'form_' . ($slug ?: 'form') . '_submit';
+        return 'field_' . $name . '_placeholder';
     }
 
     /**
-     * Decides whether a translation key follows its source or stands on its own.
+     * The key the submit button is translated by.
      *
-     * A key that still matches what was last generated is one nobody has
-     * touched, so it follows the name and is regenerated. A key that differs
-     * was chosen deliberately and is kept, even when the name later changes —
-     * which is the whole point of recording what was generated. Clearing the
-     * field puts it back under automatic control.
-     *
-     * @return array{0: string, 1: string} The key to use, and the generated
-     *                                     value to remember for next time.
+     * One key for every form on the site, not one per form. A button reading
+     * "Send" is "Send" everywhere, and a key per form would mean translating
+     * the same word again for each — which is exactly the busywork this is
+     * supposed to remove. A form that genuinely needs different wording can
+     * still have it: the button text is a field, and only the translation is
+     * shared.
      */
-    public static function resolveTranslationKey(string $current, string $lastGenerated, string $expected): array
+    public static function generatedSubmitKey(): string
     {
-        $current = trim($current);
-
-        if ('' === $current || $current === trim($lastGenerated)) {
-            return [$expected, $expected];
-        }
-
-        // Deliberately keeps the old generated value: it is the record of what
-        // this key was compared against, and overwriting it would make a
-        // customised key look untouched the next time the name changes.
-        return [$current, trim($lastGenerated)];
+        return 'form_submit';
     }
 
     /** Wording used when a form does not set its own. */
@@ -379,10 +299,9 @@ class FormBuilder
      */
     public static function definition(int $post_id): array
     {
-        $rows      = function_exists('carbon_get_post_meta') ? carbon_get_post_meta($post_id, 'llf_fields') : [];
-        $fields    = [];
-        $used      = [];
-        $writeBack = [];
+        $rows   = function_exists('carbon_get_post_meta') ? carbon_get_post_meta($post_id, 'llf_fields') : [];
+        $fields = [];
+        $used   = [];
 
         foreach (is_array($rows) ? $rows : [] as $row) {
             $label = trim((string) ($row['label'] ?? ''));
@@ -422,19 +341,13 @@ class FormBuilder
 
             $checkbox = 'checkbox' === $type;
 
-            [$key, $keyAuto] = self::resolveTranslationKey(
-                (string) ($row['translation_key'] ?? ''),
-                (string) ($row['translation_key_auto'] ?? ''),
-                self::generatedFieldKey($name)
-            );
-
-            // Written back so the editor shows the key the form is actually
-            // using, rather than leaving the box empty and the person guessing.
-            $writeBack[] = ['translation_key' => $key, 'translation_key_auto' => $keyAuto];
-
             $fields[] = [
                 'label'           => $label,
-                'translation_key' => $key,
+                // Derived from the name every time rather than stored and
+                // edited. A key nobody can change cannot drift from the field
+                // it names, and the editor is one box shorter for it.
+                'translation_key' => self::generatedFieldKey($name),
+                'placeholder_key' => self::generatedPlaceholderKey($name),
                 'name'            => $name,
                 'type'        => $type,
                 // A checkbox has nothing to put a placeholder in, and validation
@@ -452,18 +365,11 @@ class FormBuilder
             ? (bool) carbon_get_post_meta($post_id, 'llf_recaptcha')
             : false;
 
-        $slug   = sanitize_key(get_post_field('post_name', $post_id) ?: (string) $post_id);
         $submit = function_exists('carbon_get_post_meta')
             ? trim((string) carbon_get_post_meta($post_id, 'llf_submit_label'))
             : '';
 
-        [$submitKey, $submitKeyAuto] = self::resolveTranslationKey(
-            function_exists('carbon_get_post_meta') ? (string) carbon_get_post_meta($post_id, 'llf_submit_translation_key') : '',
-            function_exists('carbon_get_post_meta') ? (string) carbon_get_post_meta($post_id, 'llf_submit_translation_key_auto') : '',
-            self::generatedSubmitKey($slug)
-        );
-
-        self::writeBackKeys($post_id, $writeBack, $submitKey, $submitKeyAuto);
+        $submitKey = self::generatedSubmitKey();
 
         $success = function_exists('carbon_get_post_meta')
             ? trim((string) carbon_get_post_meta($post_id, 'llf_success_message'))

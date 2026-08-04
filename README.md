@@ -264,6 +264,15 @@ there is nothing left for it to translate.
 
 The POT download is still there for translating outside WordPress entirely.
 
+The language list comes from WPML or Polylang where one is running, because the
+translation plugin decides which locale a page is served as — and that is the
+only name a file can usefully have. WordPress's own list of installed
+translations is a fallback for sites without one, used *instead of* rather than
+as well as. Offering both listed Latvian twice on a WPML site: `lv_LV`, which is
+what pages are served as, and a bare `lv` from a stray language pack. The second
+looked right and would never have been loaded. The locale actually serving the
+page is marked in the list.
+
 Files live in `wp-content/languages/lonsda-light-form/`, not in the plugin
 folder — WordPress replaces that folder on every update and would take the
 translations with it. They can equally be dropped there over FTP.

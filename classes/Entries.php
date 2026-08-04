@@ -66,13 +66,14 @@ class Entries
                 'form_title'   => (string) ($form['title'] ?? ''),
                 'post_id'      => isset($context['post_id']) ? (int) $context['post_id'] : null,
                 'language'     => (string) ($context['language'] ?? ''),
+                'locale'       => (string) ($context['locale'] ?? ''),
                 'ip'           => (string) ($context['ip'] ?? ''),
                 'user_agent'   => (string) ($context['user_agent'] ?? ''),
                 'data'         => wp_json_encode($rows),
                 'status'       => self::STATUS_NEW,
                 'submitted_at' => (string) ($context['submitted_at'] ?? gmdate('Y-m-d H:i:s')),
             ],
-            ['%d', '%s', '%d', '%s', '%s', '%s', '%s', '%s', '%s']
+            ['%d', '%s', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s']
         );
 
         if (false === $inserted) {
@@ -188,6 +189,8 @@ class Entries
             'form_title'   => (string) $row->form_title,
             'post_id'      => null === $row->post_id ? null : (int) $row->post_id,
             'language'     => (string) $row->language,
+            // Absent on a row written before the column existed.
+            'locale'       => (string) ($row->locale ?? ''),
             'ip'           => (string) $row->ip,
             'user_agent'   => (string) $row->user_agent,
             'submitted_at' => (string) $row->submitted_at,

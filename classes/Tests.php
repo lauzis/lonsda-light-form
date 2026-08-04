@@ -243,12 +243,22 @@ class Tests
         );
 
         self::title(__('It receives the common metadata', 'lonsda-light-form'));
-        $expected = ['form_id', 'post_id', 'language', 'time', 'submitted_at', 'ip', 'user_agent'];
+        $expected = ['form_id', 'post_id', 'language', 'locale', 'time', 'submitted_at', 'ip', 'user_agent'];
         $missing  = array_diff($expected, array_keys($context));
         self::assert(
             $missing ? 'missing: ' . implode(', ', $missing) : 'all keys present',
             [] === $missing,
             $context
+        );
+
+        self::title(__('Language and locale are both recorded, and differ', 'lonsda-light-form'));
+        // WPML and Polylang report a bare "lv"; WordPress serves "lv_LV". Both
+        // are kept because only one of them groups submissions and only the
+        // other names a translation file.
+        self::assert(
+            sprintf('language %s, locale %s', $context['language'] ?? '?', $context['locale'] ?? '?'),
+            '' !== ($context['locale'] ?? '')
+                && 0 === strpos((string) ($context['locale'] ?? ''), (string) ($context['language'] ?? 'x'))
         );
 
         self::title(__('The metadata describes this request', 'lonsda-light-form'));
@@ -379,10 +389,10 @@ class Tests
             $entry['fields'] ?? []
         );
 
-        self::title(__('It keeps the metadata', 'lonsda-light-form'));
+        self::title(__('It keeps the metadata, language and locale both', 'lonsda-light-form'));
         self::assert(
-            sprintf('language %s, ip %s', $entry['language'] ?? '?', $entry['ip'] ?? '?'),
-            '' !== ($entry['language'] ?? '') && '' !== ($entry['submitted_at'] ?? '')
+            sprintf('language %s, locale %s, ip %s', $entry['language'] ?? '?', $entry['locale'] ?? '?', $entry['ip'] ?? '?'),
+            '' !== ($entry['language'] ?? '') && '' !== ($entry['locale'] ?? '') && '' !== ($entry['submitted_at'] ?? '')
         );
 
         self::title(__('The form title is kept, so an entry survives its form', 'lonsda-light-form'));

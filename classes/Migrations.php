@@ -31,6 +31,8 @@ class Migrations
         // definition serves both a new install and an upgrade.
         $runner->add('0.8.0', [self::class, 'createEntriesTable']);
         $runner->add('0.10.0', [self::class, 'reprojectForms']);
+        // dbDelta adds the locale column to a table that already exists.
+        $runner->add('0.12.0', [self::class, 'createEntriesTable']);
 
         return $runner;
     }
@@ -88,6 +90,7 @@ class Migrations
                 form_title varchar(255) NOT NULL DEFAULT '',
                 post_id bigint(20) unsigned NULL DEFAULT NULL,
                 language varchar(20) NOT NULL DEFAULT '',
+                locale varchar(20) NOT NULL DEFAULT '',
                 ip varchar(100) NOT NULL DEFAULT '',
                 user_agent varchar(255) NOT NULL DEFAULT '',
                 data longtext NOT NULL,

@@ -356,20 +356,27 @@ class Submission
      * rejected hook: a rejection is often the more interesting one to look at.
      *
      * @return array{
-     *     form_id: int, post_id: int|null, language: string, time: int,
-     *     submitted_at: string, ip: string, user_agent: string
+     *     form_id: int, post_id: int|null, language: string, locale: string,
+     *     time: int, submitted_at: string, ip: string, user_agent: string
      * }
      */
     public static function context(int $form_id): array
     {
-        $post_id = (int) get_the_ID();
+        $post_id  = (int) get_the_ID();
+        $language = self::language($post_id);
 
         $context = [
             'form_id' => $form_id,
             // Null rather than 0 when there is no post: a form can be rendered
             // outside the loop, and 0 would read as a real id.
             'post_id' => $post_id > 0 ? $post_id : null,
-            'language' => self::language($post_id),
+            // Two different facts, both worth keeping. WPML and Polylang speak
+            // bare language codes, and that is what groups a submission with
+            // others like it — an audience, a mailing list, a report. The
+            // locale is what WordPress was actually serving, and is the only
+            // form that distinguishes en_US from en_GB or names a .mo file.
+            'language' => $language,
+            'locale'   => self::locale($language),
             'time'     => time(),
             // Alongside the timestamp rather than instead of it: whoever emails
             // this wants something readable, and UTC so it does not shift with
@@ -392,6 +399,23 @@ class Submission
         $agent = sanitize_text_field(wp_unslash($_SERVER['HTTP_USER_AGENT']));
 
         return mb_substr($agent, 0, self::MAX_USER_AGENT);
+    }
+
+    /**
+     * The full locale for a language, e.g. "lv" => "lv_LV".
+     *
+     * Resolved from the language rather than read off the request, so it
+     * describes the same thing the language does. Reading the request's locale
+     * instead labelled a Latvian post en_US whenever the code ran in an admin
+     * session set to English.
+     */
+    private static function locale(string $language): string
+    {
+        if (class_exists('\\Lauzis\\WpPackages\\I18n\\Language')) {
+            return \Lauzis\WpPackages\I18n\Language::locale_for($language);
+        }
+
+        return function_exists('determine_locale') ? determine_locale() : '';
     }
 
     /**

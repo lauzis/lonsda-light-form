@@ -215,7 +215,8 @@ $llf_settings_url    = admin_url('admin.php?page=' . LLF_SLUG . '-settings');
             <tr><td><code>{submitted_at}</code></td><td><?php esc_html_e('When it was submitted, in UTC.', 'lonsda-light-form'); ?></td></tr>
             <tr><td><code>{page_title}</code></td><td><?php esc_html_e('The page the form was on. Empty if it was not on one.', 'lonsda-light-form'); ?></td></tr>
             <tr><td><code>{page_url}</code></td><td><?php esc_html_e('That page\'s address.', 'lonsda-light-form'); ?></td></tr>
-            <tr><td><code>{language}</code></td><td><?php esc_html_e('Language the page was in.', 'lonsda-light-form'); ?></td></tr>
+            <tr><td><code>{language}</code></td><td><?php esc_html_e('Language the page was in, as a bare code — lv.', 'lonsda-light-form'); ?></td></tr>
+            <tr><td><code>{locale}</code></td><td><?php esc_html_e('The same language in full — lv_LV. This is the form translation files are named in.', 'lonsda-light-form'); ?></td></tr>
             <tr><td><code>{ip}</code></td><td><?php esc_html_e('The submitter\'s IP address.', 'lonsda-light-form'); ?></td></tr>
             <tr><td><code>{user_agent}</code></td><td><?php esc_html_e('The browser they used.', 'lonsda-light-form'); ?></td></tr>
         </tbody>

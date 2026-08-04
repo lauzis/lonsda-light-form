@@ -152,6 +152,7 @@ class Notifications
         $tokens['{page_title}']   = !empty($context['post_id']) ? (string) get_the_title((int) $context['post_id']) : '';
         $tokens['{page_url}']     = $page;
         $tokens['{language}']     = (string) ($context['language'] ?? '');
+        $tokens['{locale}']       = (string) ($context['locale'] ?? '');
         $tokens['{ip}']           = (string) ($context['ip'] ?? '');
         $tokens['{user_agent}']   = (string) ($context['user_agent'] ?? '');
 

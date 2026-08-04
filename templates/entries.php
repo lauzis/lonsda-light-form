@@ -195,7 +195,12 @@ $llf_args     = ['llf_form' => $llf_form_id, 'llf_status' => $llf_status];
                                         </tr>
                                         <tr>
                                             <th><?php esc_html_e('Language', 'lonsda-light-form'); ?></th>
-                                            <td><code><?php echo esc_html($llf_entry['language'] ?: '—'); ?></code></td>
+                                            <td>
+                                                <code><?php echo esc_html($llf_entry['language'] ?: '—'); ?></code>
+                                                <?php if (!empty($llf_entry['locale']) && $llf_entry['locale'] !== $llf_entry['language']) : ?>
+                                                    <span class="description"><?php echo esc_html($llf_entry['locale']); ?></span>
+                                                <?php endif; ?>
+                                            </td>
                                         </tr>
                                         <tr>
                                             <th><?php esc_html_e('IP address', 'lonsda-light-form'); ?></th>

@@ -114,7 +114,7 @@ nobody chose. Clearing the field sends nothing.
   order. Leave the message empty and that is what you get, wrapped in the
   metadata below.
 - Also available: `{form_title}`, `{site_name}`, `{site_url}`, `{submitted_at}`,
-  `{page_title}`, `{page_url}`, `{language}`, `{ip}`, `{user_agent}`. A field
+  `{page_title}`, `{page_url}`, `{language}`, `{locale}`, `{ip}`, `{user_agent}`. A field
   whose Name matches one of these does not displace it — the fixed set has to
   mean the same thing on every form.
 - The subject default is `{form_title}` rather than the title itself because a
@@ -190,7 +190,8 @@ does not opt in to any of it.
 | --- | --- |
 | `form_id` | The form that was submitted. |
 | `post_id` | The post or page it was submitted from, or `null` when there is no post — a form in a footer or widget, say. Null rather than `0`, which would read as a real id. |
-| `language` | Language code of that post. Detected by the shared package's `Language` component, which handles WPML and Polylang and lets anything else answer through a filter. Falls back to the site locale. |
+| `language` | Language code of that post — a bare `lv`. What WPML and Polylang natively report, and what groups a submission with others like it. |
+| `locale` | The same language in full, `lv_LV`. Resolved *from the language*, not read off the request, so an admin viewing the entry in English does not change the answer. This is the form the Translations screen names its files in, and the only one that tells `en_US` from `en_GB`. |
 | `time` | Unix timestamp. |
 | `submitted_at` | The same moment as `Y-m-d H:i:s` in UTC, for anything that has to be read by a person. UTC so it does not shift when the site's timezone setting changes. |
 | `ip` | `REMOTE_ADDR`. |

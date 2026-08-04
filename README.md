@@ -326,6 +326,35 @@ WPML is consulted first and gettext fills in whatever it has no translation for.
 Anything else can hook `lonsda_form_string`, which receives the text, its key
 and the context.
 
+## Styling a rejected submission
+
+A submission that fails validation comes back with the answers intact and the
+offending fields marked, so a stylesheet can colour them without any JavaScript.
+
+| Class | On |
+| --- | --- |
+| `llf-form--has-errors` | The form, when anything was rejected. |
+| `llf-field--error` | The wrapper of each rejected field. |
+| `llf-input--error` | The input itself. |
+| `llf-input`, `llf-input--text` / `--textarea` / `--checkbox` | Every input, error or not. |
+| `llf-error` | The message under a rejected field. |
+| `llf-notice--error` | The message above the form. |
+
+```css
+.llf-input--error { border-color: #d63638; }
+.llf-field--error .llf-error { color: #d63638; }
+```
+
+The class is on the input as well as the wrapper because colouring the border of
+the thing that is wrong is the usual way to show it, and a stylesheet should not
+have to reach in from a parent to do it.
+
+Only rejected fields are marked — a class everything wears is no more use than
+one nothing wears.
+
+Rejected inputs also carry `aria-invalid="true"` and an `aria-describedby`
+pointing at their message, so the reason is announced and not merely coloured.
+
 ## Spam
 
 Every form carries a hidden honeypot and records when it was opened. A

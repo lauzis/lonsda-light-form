@@ -143,9 +143,20 @@ class Renderer
         $type  = (string) $field['type'];
         $req   = !empty($field['required']);
         $attrs = [
-            'id'   => $id,
-            'name' => 'llf[' . $name . ']',
+            'id'    => $id,
+            'name'  => 'llf[' . $name . ']',
+            // A class on the input itself, not only on the wrapper: colouring
+            // the border of the thing that is wrong is the usual way to show
+            // it, and a stylesheet should not have to reach in from a parent.
+            'class' => 'llf-input llf-input--' . $type . ($error ? ' llf-input--error' : ''),
         ];
+
+        if ($error) {
+            // Announced as well as coloured. Someone using a screen reader gets
+            // no benefit from a red border.
+            $attrs['aria-invalid']      = 'true';
+            $attrs['aria-describedby']  = $id . '-error';
+        }
 
         if ($req) {
             $attrs['required'] = 'required';
@@ -196,7 +207,7 @@ class Renderer
         }
 
         if ($error) {
-            $out .= '<span class="llf-error">' . esc_html($error) . '</span>';
+            $out .= '<span class="llf-error" id="' . esc_attr($id) . '-error">' . esc_html($error) . '</span>';
         }
 
         return $out . '</p>';

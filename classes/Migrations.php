@@ -36,6 +36,9 @@ class Migrations
         // Definitions written before placeholders were translatable have no
         // key for them; rebuilding derives one from the field name.
         $runner->add('0.14.0', [self::class, 'reprojectForms']);
+        // The submit button's key stopped being per form; stored definitions
+        // still carry the old one until they are rebuilt.
+        $runner->add('0.15.0', [self::class, 'reprojectForms']);
 
         return $runner;
     }

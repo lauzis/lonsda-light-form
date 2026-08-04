@@ -16,13 +16,18 @@ defined('ABSPATH') || exit;
 $llf_id        = (int) $form['id'];
 $llf_recaptcha = \LonsdaLightForm\FormBuilder::recaptchaActive($form['settings'] ?? []);
 ?>
-<form class="llf-form" method="post" action="">
+<?php
+// A class on the form itself, so a stylesheet can react to "this submission was
+// rejected" without inspecting the fields.
+$llf_has_errors = !empty($errors);
+?>
+<form class="llf-form<?php echo $llf_has_errors ? ' llf-form--has-errors' : ''; ?>" method="post" action="">
     <?php if ('' !== $success_message) : ?>
         <?php // Authored in the editor, so markup is kept — unlike the plain ?>
         <?php // strings below, which are ours and carry no markup.            ?>
         <div class="llf-notice llf-notice--success"><?php echo wp_kses_post($success_message); ?></div>
     <?php elseif ('' !== $notice) : ?>
-        <div class="llf-notice"><?php echo esc_html($notice); ?></div>
+        <div class="llf-notice llf-notice--error"><?php echo esc_html($notice); ?></div>
     <?php endif; ?>
 
     <?php wp_nonce_field('llf_submit_' . $llf_id, 'llf_nonce'); ?>

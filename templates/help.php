@@ -383,6 +383,25 @@ $llf_settings_url    = admin_url('admin.php?page=' . LLF_SLUG . '-settings');
         </tbody>
     </table>
 
+    <h2><?php esc_html_e('Styling a rejected submission', 'lonsda-light-form'); ?></h2>
+    <p style="max-width:860px;">
+        <?php esc_html_e('When a submission is rejected the form comes back with the answers still in it and the offending fields marked, so a theme can colour them with CSS alone.', 'lonsda-light-form'); ?>
+    </p>
+    <table class="widefat striped" style="max-width:860px;margin-bottom:12px;">
+        <tbody>
+            <tr><th style="width:230px;"><code>llf-form--has-errors</code></th><td><?php esc_html_e('On the form, when anything was rejected.', 'lonsda-light-form'); ?></td></tr>
+            <tr><th><code>llf-field--error</code></th><td><?php esc_html_e('On the wrapper of each rejected field.', 'lonsda-light-form'); ?></td></tr>
+            <tr><th><code>llf-input--error</code></th><td><?php esc_html_e('On the input itself — usually the one you want.', 'lonsda-light-form'); ?></td></tr>
+            <tr><th><code>llf-error</code></th><td><?php esc_html_e('On the message beneath a rejected field.', 'lonsda-light-form'); ?></td></tr>
+            <tr><th><code>llf-notice--error</code></th><td><?php esc_html_e('On the message above the form.', 'lonsda-light-form'); ?></td></tr>
+        </tbody>
+    </table>
+    <pre style="background:#f6f7f7;padding:12px;max-width:860px;overflow:auto;"><code>.llf-input--error { border-color: #d63638; }
+.llf-field--error .llf-error { color: #d63638; }</code></pre>
+    <p style="max-width:860px;">
+        <?php esc_html_e('Only rejected fields are marked — a class everything wears is no more use than one nothing wears. Rejected inputs also carry aria-invalid and point at their message, so the reason is announced and not only coloured.', 'lonsda-light-form'); ?>
+    </p>
+
     <h2><?php esc_html_e('Spam', 'lonsda-light-form'); ?></h2>
     <p>
         <?php esc_html_e('Every form carries a hidden honeypot field and records when it was opened; a submission that fills the honeypot in, or arrives faster than the configured minimum, is refused. Both are configurable under Settings, and neither tells the sender which check it tripped — that would only help the next attempt.', 'lonsda-light-form'); ?>

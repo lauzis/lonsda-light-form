@@ -363,6 +363,30 @@ class Tests
             $r['errors'] ?? []
         );
 
+        self::title(__('A rejected field is marked for styling', 'lonsda-light-form'));
+        $r    = self::submit($form_id, array_merge($valid, ['email' => 'not-an-email']));
+        $html = Renderer::form($form_id, ['errors' => $r['errors'], 'values' => $r['values'], 'notice' => $r['notice']]);
+
+        self::assert(
+            'the input and its wrapper both carry an error class',
+            self::hasAll($html, ['llf-input--error', 'llf-field--error', 'llf-form--has-errors'])
+        );
+
+        self::title(__('And announced, not only coloured', 'lonsda-light-form'));
+        self::assert(
+            'aria-invalid and a described-by pointing at the message',
+            self::hasAll($html, ['aria-invalid="true"', 'aria-describedby="llf-email-error"', 'id="llf-email-error"'])
+        );
+
+        self::title(__('A field that passed is not marked', 'lonsda-light-form'));
+        // The class has to mean something: everything wearing it would be no
+        // more use than nothing wearing it.
+        self::assert(
+            'only the rejected field carries it',
+            1 === substr_count($html, 'llf-input--error')
+                && false !== strpos($html, 'llf[code]')
+        );
+
         self::title(__('Another listener can add errors of its own', 'lonsda-light-form'));
         $veto = static function (array $errors): array {
             $errors['email'] = 'blocked by a test';

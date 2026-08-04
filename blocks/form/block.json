@@ -1,0 +1,24 @@
+{
+  "$schema": "https://schemas.wp.org/trunk/block.json",
+  "apiVersion": 3,
+  "name": "lonsda/form",
+  "version": "0.2.0",
+  "title": "Lonsda Form",
+  "category": "widgets",
+  "icon": "feedback",
+  "description": "Insert a form built with Lonsda Light Form.",
+  "keywords": ["form", "contact", "lonsda"],
+  "textdomain": "lonsda-light-form",
+  "supports": {
+    "html": false,
+    "align": ["wide", "full"]
+  },
+  "attributes": {
+    "formId": {
+      "type": "number",
+      "default": 0
+    }
+  },
+  "editorScript": "file:./index.js",
+  "render": "file:./render.php"
+}

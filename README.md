@@ -18,7 +18,7 @@ components the other plugins in this account use.
 - **Translations** — labels and buttons carry keys, translated in the browser or through `.po`/`.mo` files, with WPML supported directly.
 - **Spam** — honeypot, minimum completion time, and optional per-form reCAPTCHA v2 with a test on the settings page.
 - **Import and export** — form definitions as JSON, all or a selection.
-- **Self tests** — seven scenarios run against the live install, cleaning up after themselves.
+- **Self tests** — eight scenarios, 81 assertions, run against the live install and cleaning up after themselves.
 - **Hooks** — every submission is handed on with consistent metadata, so a theme can do anything this does not.
 
 ## Building a form
@@ -383,12 +383,17 @@ capability that is not what anyone assumed.
 | Field validation | Required, email, pattern, maximum length, required checkbox, and that the rules hold for a request that never saw the form. |
 | Stored entries | Storage, status, the unread count, filtering, CSV, deletion. |
 | Notification emails | Recipients, placeholders, Reply-To, and that nothing is actually sent. |
+| Translations | Collection, the POT, saving, merging, clearing, and that no language is offered twice. |
 | Clean up leftovers | Removes anything an interrupted run left behind. |
 
 Because a new form is prefilled with the site's own address, a test form is one
 that would email the administrator — so every send is cancelled for the duration
 of a run, at a priority nothing else uses. A full run makes zero `wp_mail()`
 calls, which is asserted rather than assumed.
+
+The translation scenario writes to the locale `zz_ZZ`, which no site serves.
+Using a real one would put test strings in front of visitors, and cleaning up
+afterwards would delete a translation somebody had actually made.
 
 Every form a run creates is titled `LLF Self Test — …` and removed afterwards,
 including when a scenario fails or throws: cleanup is in a `finally`, and each

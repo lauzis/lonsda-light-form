@@ -23,6 +23,15 @@ class Tests
      */
     public const PREFIX = 'LLF Self Test —';
 
+    /**
+     * Locale the translation scenario writes to.
+     *
+     * Deliberately not a real one. Writing to a locale the site might serve
+     * would put test strings in front of visitors, and cleaning it up would
+     * delete a translation someone had actually made.
+     */
+    public const TEST_LOCALE = 'zz_ZZ';
+
     /** Slug => label, for the buttons on the tests page. */
     public static function scenarios(): array
     {
@@ -33,6 +42,7 @@ class Tests
             'validation'    => __('Field validation', 'lonsda-light-form'),
             'entries'       => __('Stored entries', 'lonsda-light-form'),
             'notifications' => __('Notification emails', 'lonsda-light-form'),
+            'translations'  => __('Translations', 'lonsda-light-form'),
             'cleanup'       => __('Clean up leftovers from earlier runs', 'lonsda-light-form'),
         ];
     }
@@ -63,6 +73,7 @@ class Tests
                 'validation'    => self::validationScenario(),
                 'entries'       => self::entriesScenario(),
                 'notifications' => self::notificationsScenario(),
+                'translations'  => self::translationsScenario(),
                 'cleanup'       => self::cleanupScenario(),
                 default         => self::result(__('Unknown scenario.', 'lonsda-light-form'), false),
             };
@@ -542,6 +553,124 @@ class Tests
         self::assert('every send was cancelled', true);
     }
 
+    private static function translationsScenario(): void
+    {
+        self::heading(__('Translations', 'lonsda-light-form'));
+
+        $post_id = self::makeForm('Translations', [
+            ['label' => 'Given name', 'name' => 'given_name', 'type' => 'text'],
+            ['label' => 'Message', 'name' => 'message', 'type' => 'textarea'],
+        ]);
+        $form_id = Forms::tableIdForPost($post_id);
+        $key     = FormBuilder::generatedFieldKey('given_name');
+        $other   = FormBuilder::generatedFieldKey('message');
+
+        self::title(__('The form\'s strings are collected', 'lonsda-light-form'));
+        $strings = Translations::strings();
+        self::assert(
+            count($strings) . ' string(s) across all forms',
+            isset($strings[$key], $strings[$other]) && 'Given name' === $strings[$key]['text']
+        );
+
+        self::title(__('They can be narrowed to one form', 'lonsda-light-form'));
+        $mine = Translations::strings($form_id);
+        self::assert(
+            count($mine) . ' for this form',
+            isset($mine[$key]) && count($mine) <= count($strings) && [] === Translations::strings(999999)
+        );
+
+        self::title(__('The POT keys by context and reads by label', 'lonsda-light-form'));
+        $pot = Translations::pot();
+        self::assert(
+            'msgctxt is the key, msgid is the label',
+            self::hasAll($pot, ['msgctxt "' . $key . '"', 'msgid "Given name"', 'Content-Type: text/plain; charset=UTF-8'])
+        );
+
+        self::title(__('Saving writes both a .mo and a .po', 'lonsda-light-form'));
+        $saved = Translations::save(self::TEST_LOCALE, [$key => 'Priekšvārds']);
+        self::assert(
+            'both files present',
+            true === $saved
+                && is_readable(Translations::path(self::TEST_LOCALE))
+                && is_readable(Translations::poPath(self::TEST_LOCALE)),
+            is_wp_error($saved) ? $saved->get_error_message() : null
+        );
+
+        self::title(__('And it reads back', 'lonsda-light-form'));
+        self::assert(
+            'the translation round-trips',
+            'Priekšvārds' === (Translations::existing(self::TEST_LOCALE)[$key] ?? null)
+        );
+
+        self::title(__('It is used when that language is loaded', 'lonsda-light-form'));
+        // Loaded and put back deliberately: this is the live request, and
+        // leaving a test locale in place would translate the rest of the page.
+        unload_textdomain(Translations::DOMAIN);
+        load_textdomain(Translations::DOMAIN, Translations::path(self::TEST_LOCALE));
+        $shown        = Strings::get('Given name', $key);
+        $untranslated = Strings::get('Message', $other);
+        unload_textdomain(Translations::DOMAIN);
+        Translations::load();
+
+        self::assert(
+            'translated where there is one, original where there is not',
+            'Priekšvārds' === $shown && 'Message' === $untranslated
+        );
+
+        self::title(__('A second save keeps what it was not shown', 'lonsda-light-form'));
+        Translations::save(self::TEST_LOCALE, [$other => 'Ziņa']);
+        $now = Translations::existing(self::TEST_LOCALE);
+        self::assert(
+            'both survive',
+            'Ziņa' === ($now[$other] ?? null) && 'Priekšvārds' === ($now[$key] ?? null),
+            $now
+        );
+
+        self::title(__('Clearing a box removes only that translation', 'lonsda-light-form'));
+        Translations::save(self::TEST_LOCALE, [$key => '   ']);
+        $now = Translations::existing(self::TEST_LOCALE);
+        self::assert(
+            'one gone, the other kept',
+            !isset($now[$key]) && 'Ziņa' === ($now[$other] ?? null),
+            $now
+        );
+
+        self::title(__('A translation whose original is gone is dropped', 'lonsda-light-form'));
+        Translations::save(self::TEST_LOCALE, ['no_such_key_at_all' => 'orphan']);
+        self::assert(
+            'not stored',
+            !isset(Translations::existing(self::TEST_LOCALE)['no_such_key_at_all'])
+        );
+
+        self::title(__('Installed files are listed', 'lonsda-light-form'));
+        $installed = Translations::installed();
+        self::assert(
+            implode(', ', array_keys($installed)),
+            isset($installed[self::TEST_LOCALE]) && $installed[self::TEST_LOCALE]['entries'] > 0
+        );
+
+        self::title(__('No language is offered twice', 'lonsda-light-form'));
+        // The bug this catches: WordPress's installed-translations list added a
+        // bare "lv" beside WPML's "lv_LV", and only one of them is ever loaded.
+        $languages = [];
+
+        foreach (array_keys(Translations::locales()) as $locale) {
+            $languages[] = strtolower(explode('_', str_replace('-', '_', $locale))[0]);
+        }
+
+        $duplicates = array_keys(array_filter(array_count_values($languages), static fn($n) => $n > 1));
+        self::assert(
+            $duplicates ? 'offered twice: ' . implode(', ', $duplicates) : implode(', ', array_keys(Translations::locales())),
+            [] === $duplicates
+        );
+
+        self::title(__('The locale serving this page is among them', 'lonsda-light-form'));
+        self::assert(determine_locale(), isset(Translations::locales()[determine_locale()]));
+
+        self::title(__('An invalid locale is refused', 'lonsda-light-form'));
+        self::assert('refused', is_wp_error(Translations::save('', [$key => 'x'])));
+    }
+
     private static function cleanupScenario(): void
     {
         self::heading(__('Cleaning up', 'lonsda-light-form'));
@@ -652,12 +781,15 @@ class Tests
         return is_array($result) ? $result : ['success' => false, 'errors' => [], 'notice' => 'no result'];
     }
 
-    /** Test forms and entries still present, by title prefix. */
+    /** Test forms, entries and translation files still present. */
     private static function leftovers(): int
     {
         global $wpdb;
 
-        return count(self::findTestForms()) + (int) $wpdb->get_var(
+        $files = (int) file_exists(Translations::path(self::TEST_LOCALE))
+            + (int) file_exists(Translations::poPath(self::TEST_LOCALE));
+
+        return $files + count(self::findTestForms()) + (int) $wpdb->get_var(
             $wpdb->prepare(
                 'SELECT COUNT(*) FROM ' . Migrations::entriesTableName() . ' WHERE form_title LIKE %s',
                 $wpdb->esc_like(self::PREFIX) . '%'
@@ -696,6 +828,14 @@ class Tests
 
         foreach (self::findTestForms() as $id) {
             wp_delete_post($id, true);
+        }
+
+        // Written by the translation scenario, and only ever by it — the locale
+        // is one no site serves.
+        foreach ([Translations::path(self::TEST_LOCALE), Translations::poPath(self::TEST_LOCALE)] as $file) {
+            if (file_exists($file)) {
+                unlink($file);
+            }
         }
 
         // Entries are matched on the form title they recorded, which is the

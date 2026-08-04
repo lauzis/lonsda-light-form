@@ -9,6 +9,7 @@ use LonsdaLightForm\Entries;
 
 $llf_form_id  = isset($_GET['llf_form']) ? (int) $_GET['llf_form'] : 0;
 $llf_status   = isset($_GET['llf_status']) ? sanitize_key(wp_unslash($_GET['llf_status'])) : '';
+$llf_language = isset($_GET['llf_language']) ? sanitize_text_field(wp_unslash($_GET['llf_language'])) : '';
 $llf_open     = isset($_GET['llf_entry']) ? (int) $_GET['llf_entry'] : 0;
 $llf_page     = max(1, isset($_GET['paged']) ? (int) $_GET['paged'] : 1);
 $llf_per_page = 25;
@@ -18,17 +19,69 @@ $llf_per_page = 25;
 if ($llf_open > 0) {
     Entries::markViewed($llf_open);
 }
-$llf_total    = Entries::count($llf_form_id, $llf_status);
+$llf_total    = Entries::count($llf_form_id, $llf_status, $llf_language);
 $llf_pages    = (int) ceil($llf_total / $llf_per_page);
 $llf_rows     = Entries::all([
     'form_id'  => $llf_form_id,
     'status'   => $llf_status,
+    'language' => $llf_language,
     'per_page' => $llf_per_page,
     'page'     => $llf_page,
+    'orderby'  => isset($_GET['llf_orderby']) ? sanitize_key(wp_unslash($_GET['llf_orderby'])) : '',
+    'order'    => isset($_GET['llf_order']) ? sanitize_key(wp_unslash($_GET['llf_order'])) : '',
 ]);
 $llf_forms    = Entries::formsWithEntries();
 $llf_base     = admin_url('admin.php?page=' . LLF_SLUG . '-entries');
-$llf_args     = ['llf_form' => $llf_form_id, 'llf_status' => $llf_status];
+$llf_args     = [
+    'llf_form'     => $llf_form_id,
+    'llf_status'   => $llf_status,
+    'llf_language' => $llf_language,
+];
+
+// Carried on every link, so opening an entry or paging does not silently
+// reset the order back to newest-first.
+$llf_keep = $llf_args + [
+    'llf_orderby' => isset($_GET['llf_orderby']) ? sanitize_key(wp_unslash($_GET['llf_orderby'])) : '',
+    'llf_order'   => isset($_GET['llf_order']) ? sanitize_key(wp_unslash($_GET['llf_order'])) : '',
+];
+$llf_languages = Entries::languages();
+
+$llf_orderby = isset($_GET['llf_orderby']) ? sanitize_key(wp_unslash($_GET['llf_orderby'])) : 'submitted_at';
+$llf_order   = isset($_GET['llf_order']) && 'asc' === strtolower(wp_unslash($_GET['llf_order'])) ? 'asc' : 'desc';
+
+if (!in_array($llf_orderby, Entries::SORTABLE, true)) {
+    $llf_orderby = 'submitted_at';
+}
+
+/**
+ * A sortable column header, in WordPress's own markup so it looks native.
+ *
+ * Clicking the current column flips the direction; clicking another starts it
+ * descending, which for a date means newest first and for a name is at least
+ * consistent.
+ */
+$llf_column = static function (string $column, string $label, string $width = '') use ($llf_base, $llf_args, $llf_orderby, $llf_order): string {
+    if (!in_array($column, Entries::SORTABLE, true)) {
+        return '<th' . ($width ? ' style="width:' . esc_attr($width) . ';"' : '') . '>' . esc_html($label) . '</th>';
+    }
+
+    $active = $llf_orderby === $column;
+    $next   = ($active && 'desc' === $llf_order) ? 'asc' : 'desc';
+
+    $url = add_query_arg(
+        $llf_args + ['llf_orderby' => $column, 'llf_order' => $next],
+        $llf_base
+    );
+
+    return sprintf(
+        '<th scope="col" class="manage-column sortable %1$s%2$s"%3$s><a href="%4$s"><span>%5$s</span><span class="sorting-indicator"></span></a></th>',
+        $active ? $llf_order : $next,
+        $active ? ' sorted' : '',
+        $width ? ' style="width:' . esc_attr($width) . ';"' : '',
+        esc_url($url),
+        esc_html($label)
+    );
+};
 ?>
 <div class="wrap">
     <h1 class="wp-heading-inline"><?php esc_html_e('Entries', 'lonsda-light-form'); ?></h1>
@@ -56,6 +109,17 @@ $llf_args     = ['llf_form' => $llf_form_id, 'llf_status' => $llf_status];
                     </option>
                 <?php endforeach; ?>
             </select>
+
+            <?php if ($llf_languages) : ?>
+                <select name="llf_language">
+                    <option value=""><?php esc_html_e('Any language', 'lonsda-light-form'); ?></option>
+                    <?php foreach ($llf_languages as $llf_code => $llf_label) : ?>
+                        <option value="<?php echo esc_attr($llf_code); ?>" <?php selected($llf_code, $llf_language); ?>>
+                            <?php echo esc_html($llf_label); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            <?php endif; ?>
 
             <select name="llf_status">
                 <option value=""><?php esc_html_e('Any status', 'lonsda-light-form'); ?></option>
@@ -98,10 +162,15 @@ $llf_args     = ['llf_form' => $llf_form_id, 'llf_status' => $llf_status];
         <table class="wp-list-table widefat fixed striped">
             <thead>
                 <tr>
-                    <th style="width:70px;"><?php esc_html_e('ID', 'lonsda-light-form'); ?></th>
-                    <th style="width:90px;"><?php esc_html_e('Status', 'lonsda-light-form'); ?></th>
-                    <th style="width:20%;"><?php esc_html_e('Form', 'lonsda-light-form'); ?></th>
-                    <th style="width:150px;"><?php esc_html_e('Submitted (UTC)', 'lonsda-light-form'); ?></th>
+                    <?php
+                    // Summary is not sortable: it is assembled from the stored
+                    // answers at render time and does not exist as a column.
+                    echo $llf_column('id', __('ID', 'lonsda-light-form'), '70px');
+                    echo $llf_column('status', __('Status', 'lonsda-light-form'), '90px');
+                    echo $llf_column('form_title', __('Form', 'lonsda-light-form'), '20%');
+                    echo $llf_column('language', __('Language', 'lonsda-light-form'), '90px');
+                    echo $llf_column('submitted_at', __('Submitted (UTC)', 'lonsda-light-form'), '150px');
+                    ?>
                     <th><?php esc_html_e('Summary', 'lonsda-light-form'); ?></th>
                     <th style="width:150px;"></th>
                 </tr>
@@ -141,22 +210,33 @@ $llf_args     = ['llf_form' => $llf_form_id, 'llf_status' => $llf_status];
                             <?php endif; ?>
                         </td>
                         <td><?php echo esc_html($llf_entry['form_title']); ?></td>
+                        <td>
+                            <?php if ('' === $llf_entry['language']) : ?>
+                                <span style="color:#999;">&mdash;</span>
+                            <?php else : ?>
+                                <?php // The locale as a tooltip: the column stays narrow, but the ?>
+                                <?php // full form is there for anyone who needs to tell en_US from en_GB. ?>
+                                <code title="<?php echo esc_attr($llf_entry['locale'] ?: $llf_entry['language']); ?>">
+                                    <?php echo esc_html($llf_entry['language']); ?>
+                                </code>
+                            <?php endif; ?>
+                        </td>
                         <td><code><?php echo esc_html($llf_entry['submitted_at']); ?></code></td>
                         <td><?php echo esc_html(wp_trim_words(implode(' · ', $llf_summary), 18)); ?></td>
                         <td>
                             <a class="button button-small"
-                               href="<?php echo esc_url($llf_is_open ? add_query_arg($llf_args, $llf_base) : add_query_arg($llf_args + ['llf_entry' => $llf_entry['id']], $llf_base)); ?>">
+                               href="<?php echo esc_url($llf_is_open ? add_query_arg($llf_keep, $llf_base) : add_query_arg($llf_keep + ['llf_entry' => $llf_entry['id']], $llf_base)); ?>">
                                 <?php echo $llf_is_open ? esc_html__('Hide', 'lonsda-light-form') : esc_html__('View', 'lonsda-light-form'); ?>
                             </a>
                             <?php if (!$llf_is_new) : ?>
                                 <?php // For a row opened by mistake, so it can go back on the pile. ?>
                                 <a class="button button-small"
-                                   href="<?php echo esc_url(wp_nonce_url(add_query_arg($llf_args + ['llf_action' => 'unread', 'llf_entry' => $llf_entry['id']], $llf_base), 'llf-entries')); ?>">
+                                   href="<?php echo esc_url(wp_nonce_url(add_query_arg($llf_keep + ['llf_action' => 'unread', 'llf_entry' => $llf_entry['id']], $llf_base), 'llf-entries')); ?>">
                                     <?php esc_html_e('Mark unread', 'lonsda-light-form'); ?>
                                 </a>
                             <?php endif; ?>
                             <a class="button button-small"
-                               href="<?php echo esc_url(wp_nonce_url(add_query_arg($llf_args + ['llf_action' => 'delete', 'llf_entry' => $llf_entry['id']], $llf_base), 'llf-entries')); ?>"
+                               href="<?php echo esc_url(wp_nonce_url(add_query_arg($llf_keep + ['llf_action' => 'delete', 'llf_entry' => $llf_entry['id']], $llf_base), 'llf-entries')); ?>"
                                onclick="return confirm('<?php echo esc_js(__('Delete this entry? This cannot be undone.', 'lonsda-light-form')); ?>');">
                                 <?php esc_html_e('Delete', 'lonsda-light-form'); ?>
                             </a>
@@ -164,7 +244,7 @@ $llf_args     = ['llf_form' => $llf_form_id, 'llf_status' => $llf_status];
                     </tr>
                     <?php if ($llf_is_open) : ?>
                         <tr>
-                            <td colspan="6" style="background:#fbfbfb;">
+                            <td colspan="7" style="background:#fbfbfb;">
                                 <table class="widefat striped" style="margin:8px 0;">
                                     <tbody>
                                         <?php foreach ($llf_entry['fields'] as $llf_field) : ?>
@@ -223,7 +303,7 @@ $llf_args     = ['llf_form' => $llf_form_id, 'llf_status' => $llf_status];
             <div class="tablenav"><div class="tablenav-pages">
                 <?php
                 echo paginate_links([
-                    'base'      => add_query_arg('paged', '%#%', add_query_arg($llf_args, $llf_base)),
+                    'base'      => add_query_arg('paged', '%#%', add_query_arg($llf_keep, $llf_base)),
                     'format'    => '',
                     'current'   => $llf_page,
                     'total'     => $llf_pages,

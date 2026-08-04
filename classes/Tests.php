@@ -435,10 +435,64 @@ class Tests
                 && Entries::STATUS_NEW === (Entries::get($entry['id'])['status'] ?? '')
         );
 
+        self::title(__('Filtering by language agrees with counting it', 'lonsda-light-form'));
+        $lang = $entry['language'] ?? '';
+        self::assert(
+            sprintf('"%s": %d rows, count says %d', $lang, count(Entries::all(['form_id' => $form_id, 'language' => $lang])), Entries::count($form_id, '', $lang)),
+            count(Entries::all(['form_id' => $form_id, 'language' => $lang])) === Entries::count($form_id, '', $lang)
+        );
+
+        self::title(__('A language nothing was submitted in matches nothing', 'lonsda-light-form'));
+        self::assert('none', 0 === Entries::count($form_id, '', 'zz'));
+
+        self::title(__('The filter lists only languages that were used', 'lonsda-light-form'));
+        $offered = Entries::languages();
+        self::assert(
+            implode(', ', array_keys($offered)),
+            isset($offered[$lang]) && !isset($offered['zz'])
+        );
+
         self::title(__('Filtering by status agrees with counting it', 'lonsda-light-form'));
         self::assert(
             sprintf('%d rows, count says %d', count(Entries::all(['form_id' => $form_id, 'status' => Entries::STATUS_NEW])), Entries::count($form_id, Entries::STATUS_NEW)),
             count(Entries::all(['form_id' => $form_id, 'status' => Entries::STATUS_NEW])) === Entries::count($form_id, Entries::STATUS_NEW)
+        );
+
+        self::title(__('Entries can be ordered by any sortable column', 'lonsda-light-form'));
+        $ok = true;
+
+        foreach (Entries::SORTABLE as $column) {
+            foreach (['asc', 'desc'] as $direction) {
+                $rows = Entries::all(['form_id' => $form_id, 'orderby' => $column, 'order' => $direction]);
+
+                if (!is_array($rows)) {
+                    $ok = false;
+                }
+            }
+        }
+
+        self::assert(implode(', ', Entries::SORTABLE), $ok);
+
+        self::title(__('Ascending and descending are actually opposite', 'lonsda-light-form'));
+        // Needs more than one row to mean anything. Storing was switched off by
+        // an earlier step in this scenario, so it goes back on first.
+        carbon_set_post_meta($post_id, 'llf_store_entries', true);
+        Forms::syncToTable($post_id, get_post($post_id));
+        self::submit($form_id, ['email' => 'second@example.com', 'consent' => '1']);
+        $up   = wp_list_pluck(Entries::all(['form_id' => $form_id, 'orderby' => 'id', 'order' => 'asc']), 'id');
+        $down = wp_list_pluck(Entries::all(['form_id' => $form_id, 'orderby' => 'id', 'order' => 'desc']), 'id');
+        self::assert(
+            implode(',', $up) . ' vs ' . implode(',', $down),
+            count($up) > 1 && $up === array_reverse($down)
+        );
+
+        self::title(__('An invented column is ignored rather than obeyed', 'lonsda-light-form'));
+        // The column name goes straight into ORDER BY, so it has to be one of
+        // ours and not one the request supplied.
+        $injected = Entries::all(['form_id' => $form_id, 'orderby' => 'id; DROP TABLE wp_posts', 'order' => 'asc']);
+        self::assert(
+            'falls back to the default order, table untouched',
+            count($injected) === count($up) && null !== Forms::get($form_id)
         );
 
         self::title(__('CSV export includes the answers', 'lonsda-light-form'));

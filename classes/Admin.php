@@ -205,7 +205,8 @@ class Admin
             exit;
         }
 
-        $status = isset($_GET['llf_status']) ? sanitize_key(wp_unslash($_GET['llf_status'])) : '';
+        $status   = isset($_GET['llf_status']) ? sanitize_key(wp_unslash($_GET['llf_status'])) : '';
+        $language = isset($_GET['llf_language']) ? sanitize_text_field(wp_unslash($_GET['llf_language'])) : '';
         $entry  = isset($_GET['llf_entry']) ? (int) $_GET['llf_entry'] : 0;
 
         if ('delete' === $action || 'unread' === $action) {
@@ -218,9 +219,10 @@ class Admin
             wp_safe_redirect(
                 add_query_arg(
                     [
-                        'llf_done'   => 1,
-                        'llf_form'   => $form_id,
-                        'llf_status' => $status,
+                        'llf_done'     => 1,
+                        'llf_form'     => $form_id,
+                        'llf_status'   => $status,
+                        'llf_language' => $language,
                     ],
                     admin_url('admin.php?page=' . LLF_SLUG . '-entries')
                 )

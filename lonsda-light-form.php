@@ -3,7 +3,7 @@
  * Plugin Name: Lonsda Light Form
  * Plugin URI:  https://github.com/lauzis/lonsda-light-form
  * Description: Lightweight Carbon Fields form builder.
- * Version:     0.12.0
+ * Version:     0.13.0
  * Author:      Aivars Lauzis
  * Text Domain: lonsda-light-form
  * Domain Path: /languages
@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('LLF_VERSION', '0.12.0');
+define('LLF_VERSION', '0.13.0');
 define('LLF_DIR', plugin_dir_path(__FILE__));
 define('LLF_URL', plugin_dir_url(__FILE__));
 define('LLF_SLUG', 'lonsda-light-form');
@@ -73,15 +73,9 @@ add_action('admin_menu', static function (): void {
         ['\LonsdaLightForm\Admin', 'render']
     );
 
-    // Points at the post type's own add screen, so Carbon Fields renders the
-    // structure editor and WordPress handles saving, nonces and capabilities.
-    add_submenu_page(
-        LLF_SLUG,
-        __('Add Form', 'lonsda-light-form'),
-        __('Add Form', 'lonsda-light-form'),
-        'manage_options',
-        'post-new.php?post_type=' . \LonsdaLightForm\Forms::POST_TYPE
-    );
+    // No Add Form entry: the Forms page carries its own Add button, in the
+    // place WordPress puts one on every other list screen. A second route to
+    // the same screen only makes the menu longer.
 
     // The unread count in the menu, the way WordPress shows pending anything
     // else. Without it a stored entry is only found by going to look.

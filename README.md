@@ -136,9 +136,17 @@ mail before it goes; returning an empty array sends nothing.
 ## Entries
 
 Submissions are stored in `{prefix}llf_entries` and listed under **Lonsda Forms
-→ Entries**: filter by form or status, expand one to see every answer plus the
-page, language, IP and user agent, delete individually, or download the lot as
-CSV.
+→ Entries**: filter by form, status or language, sort by any column, expand one
+to see every answer plus the page, language, IP and user agent, delete
+individually, or download the lot as CSV.
+
+The language filter offers only languages entries were actually submitted in —
+so a language nobody has used is not listed, and one since removed from the site
+still is, because its entries did not go with it. Sorting is restricted to a
+fixed set of columns: an `ORDER BY` column is an identifier rather than a value,
+so it cannot be passed through `prepare()` and has to be a name this code chose.
+The current filter and sort are carried on every link, so opening an entry or
+paging does not quietly reset them.
 
 An entry arrives **New** and becomes **Viewed** when it is opened — opening it
 is the only evidence of being read that exists, so that is what marks it. The

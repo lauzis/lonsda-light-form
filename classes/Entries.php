@@ -92,7 +92,16 @@ class Entries
     }
 
     /**
-     * A page of entries, newest first.
+     * Columns a listing may be ordered by.
+     *
+     * A whitelist because an ORDER BY column is an identifier, not a value, so
+     * it cannot be passed through prepare() — it has to be a name this code
+     * chose rather than one the request supplied.
+     */
+    public const SORTABLE = ['id', 'form_title', 'language', 'status', 'submitted_at'];
+
+    /**
+     * A page of entries, newest first unless asked otherwise.
      *
      * @param array $args {
      *     @type int $form_id Restrict to one form. 0 for all.
@@ -107,30 +116,35 @@ class Entries
 
         $form_id  = (int) ($args['form_id'] ?? 0);
         $status   = (string) ($args['status'] ?? '');
+        $language = (string) ($args['language'] ?? '');
         $per_page = max(1, min(200, (int) ($args['per_page'] ?? 25)));
         $page     = max(1, (int) ($args['page'] ?? 1));
         $offset   = ($page - 1) * $per_page;
         $table    = Migrations::entriesTableName();
 
-        [$where, $params] = self::conditions($form_id, $status);
+        [$order_by, $order] = self::ordering($args['orderby'] ?? '', $args['order'] ?? '');
+
+        [$where, $params] = self::conditions($form_id, $status, $language);
         $params[]         = $per_page;
         $params[]         = $offset;
 
         return (array) $wpdb->get_results(
             $wpdb->prepare(
-                "SELECT * FROM {$table} {$where} ORDER BY submitted_at DESC, id DESC LIMIT %d OFFSET %d",
+                // id as a tie-break, so rows submitted in the same second do
+                // not swap places between pages and get shown twice or never.
+                "SELECT * FROM {$table} {$where} ORDER BY {$order_by} {$order}, id {$order} LIMIT %d OFFSET %d",
                 $params
             )
         );
     }
 
     /** How many entries there are, for paging and for the forms list. */
-    public static function count(int $form_id = 0, string $status = ''): int
+    public static function count(int $form_id = 0, string $status = '', string $language = ''): int
     {
         global $wpdb;
 
         $table            = Migrations::entriesTableName();
-        [$where, $params] = self::conditions($form_id, $status);
+        [$where, $params] = self::conditions($form_id, $status, $language);
 
         if (!$params) {
             return (int) $wpdb->get_var("SELECT COUNT(*) FROM {$table}");
@@ -140,12 +154,25 @@ class Entries
     }
 
     /**
+     * Resolves a requested ordering to something safe to interpolate.
+     *
+     * @return array{0: string, 1: string}
+     */
+    private static function ordering(string $orderby, string $order): array
+    {
+        $orderby = in_array($orderby, self::SORTABLE, true) ? $orderby : 'submitted_at';
+        $order   = 'asc' === strtolower($order) ? 'ASC' : 'DESC';
+
+        return [$orderby, $order];
+    }
+
+    /**
      * Builds the shared WHERE clause, so listing and counting cannot drift
      * apart and report a total that does not match the rows shown.
      *
      * @return array{0: string, 1: array}
      */
-    private static function conditions(int $form_id, string $status): array
+    private static function conditions(int $form_id, string $status, string $language = ''): array
     {
         $clauses = [];
         $params  = [];
@@ -160,7 +187,44 @@ class Entries
             $params[]  = $status;
         }
 
+        if ('' !== $language) {
+            $clauses[] = 'language = %s';
+            $params[]  = $language;
+        }
+
         return [$clauses ? 'WHERE ' . implode(' AND ', $clauses) : '', $params];
+    }
+
+    /**
+     * Languages that entries were actually submitted in, for the filter.
+     *
+     * Read from the entries rather than from the site's languages, so a
+     * language nobody has ever used is not offered, and one that has since been
+     * removed from the site still is — its entries did not disappear with it.
+     *
+     * @return array<string, string> Language code => label with a count.
+     */
+    public static function languages(): array
+    {
+        global $wpdb;
+
+        $rows = (array) $wpdb->get_results(
+            'SELECT language, locale, COUNT(*) AS total FROM ' . Migrations::entriesTableName()
+            . " WHERE language <> '' GROUP BY language, locale ORDER BY language ASC"
+        );
+
+        $languages = [];
+
+        foreach ($rows as $row) {
+            $code  = (string) $row->language;
+            $label = ('' !== (string) $row->locale && $row->locale !== $code)
+                ? $code . ' (' . $row->locale . ')'
+                : $code;
+
+            $languages[$code] = sprintf('%s — %d', $label, (int) $row->total);
+        }
+
+        return $languages;
     }
 
     /** One entry, with its answers decoded. */

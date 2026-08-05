@@ -42,6 +42,7 @@ class Tests
             'validation'    => __('Field validation', 'lonsda-light-form'),
             'entries'       => __('Stored entries', 'lonsda-light-form'),
             'notifications' => __('Notification emails', 'lonsda-light-form'),
+            'auto-reply'    => __('Auto reply', 'lonsda-light-form'),
             'translations'  => __('Translations', 'lonsda-light-form'),
             'cleanup'       => __('Clean up leftovers from earlier runs', 'lonsda-light-form'),
         ];
@@ -64,6 +65,7 @@ class Tests
         // a form that would email the administrator. Cancelled at a priority
         // nothing else uses, so it applies whatever a scenario does first.
         add_filter(Notifications::FILTER_MAIL, '__return_empty_array', 999);
+        add_filter(AutoReply::FILTER_MAIL, '__return_empty_array', 999);
 
         try {
             match ($scenario) {
@@ -73,6 +75,7 @@ class Tests
                 'validation'    => self::validationScenario(),
                 'entries'       => self::entriesScenario(),
                 'notifications' => self::notificationsScenario(),
+                'auto-reply'    => self::autoReplyScenario(),
                 'translations'  => self::translationsScenario(),
                 'cleanup'       => self::cleanupScenario(),
                 default         => self::result(__('Unknown scenario.', 'lonsda-light-form'), false),
@@ -90,6 +93,7 @@ class Tests
             );
         } finally {
             remove_filter(Notifications::FILTER_MAIL, '__return_empty_array', 999);
+            remove_filter(AutoReply::FILTER_MAIL, '__return_empty_array', 999);
 
             if ('cleanup' !== $scenario) {
                 self::cleanup();
@@ -656,6 +660,84 @@ class Tests
         self::assert('every send was cancelled', true);
     }
 
+    private static function autoReplyScenario(): void
+    {
+        self::heading(__('Auto reply', 'lonsda-light-form'));
+
+        $post_id = self::makeForm('AutoReply', [
+            ['label' => 'Email', 'name' => 'email', 'type' => 'text', 'validation' => 'email', 'required' => true],
+            ['label' => 'Name', 'name' => 'sender_name', 'type' => 'text'],
+        ]);
+        $form_id = Forms::tableIdForPost($post_id);
+
+        $sent = [];
+        $spy  = static function ($mail) use (&$sent) {
+            $sent[] = $mail;
+
+            return $mail;
+        };
+
+        add_filter(AutoReply::FILTER_MAIL, $spy, 10);
+
+        self::title(__('Off by default, so nothing is sent', 'lonsda-light-form'));
+        self::submit($form_id, ['email' => 'visitor@example.com', 'sender_name' => 'Anna']);
+        self::assert('nothing attempted', 0 === count($sent));
+
+        carbon_set_post_meta($post_id, 'llf_auto_reply', true);
+        carbon_set_post_meta($post_id, 'llf_auto_reply_subject', 'Thanks, {sender_name}');
+        carbon_set_post_meta($post_id, 'llf_auto_reply_message', '<p>Hello {sender_name}, we have your message.</p>');
+        Forms::syncToTable($post_id, get_post($post_id));
+
+        self::submit($form_id, ['email' => 'visitor@example.com', 'sender_name' => 'Anna']);
+
+        self::title(__('Switched on, it replies to the submitter', 'lonsda-light-form'));
+        $mail = $sent[0] ?? [];
+        self::assert(
+            'to ' . (is_array($mail['to'] ?? null) ? implode(',', $mail['to']) : (string) ($mail['to'] ?? '?')),
+            1 === count($sent) && 'visitor@example.com' === ($mail['to'] ?? '')
+        );
+
+        self::title(__('Placeholders are filled in', 'lonsda-light-form'));
+        self::assert(
+            (string) ($mail['subject'] ?? ''),
+            'Thanks, Anna' === ($mail['subject'] ?? '')
+                && false !== strpos((string) ($mail['message'] ?? ''), 'Hello Anna')
+        );
+
+        self::title(__('It is sent as HTML', 'lonsda-light-form'));
+        self::assert(
+            implode(', ', (array) ($mail['headers'] ?? [])),
+            in_array('Content-Type: text/html; charset=UTF-8', (array) ($mail['headers'] ?? []), true)
+        );
+
+        self::title(__('Script in the message is stripped', 'lonsda-light-form'));
+        // It is written into an email by whoever edits the form, and nothing
+        // there needs a script tag.
+        $sent = [];
+        carbon_set_post_meta($post_id, 'llf_auto_reply_message', '<p>Hi</p><script>alert(1)</script>');
+        Forms::syncToTable($post_id, get_post($post_id));
+        self::submit($form_id, ['email' => 'visitor@example.com']);
+        self::assert(
+            'no script tag survives',
+            false === stripos((string) ($sent[0]['message'] ?? ''), '<script')
+        );
+
+        self::title(__('Without an email field there is nowhere to send it', 'lonsda-light-form'));
+        $sent  = [];
+        $other = self::makeForm('AutoReply No Address', [
+            ['label' => 'Message', 'name' => 'message', 'type' => 'textarea'],
+        ]);
+        carbon_set_post_meta($other, 'llf_auto_reply', true);
+        Forms::syncToTable($other, get_post($other));
+        self::submit(Forms::tableIdForPost($other), ['message' => 'no address here']);
+        self::assert('nothing attempted', 0 === count($sent));
+
+        remove_filter(AutoReply::FILTER_MAIL, $spy, 10);
+
+        self::title(__('No mail left this run', 'lonsda-light-form'));
+        self::assert('every send was cancelled', true);
+    }
+
     private static function translationsScenario(): void
     {
         self::heading(__('Translations', 'lonsda-light-form'));
@@ -718,6 +800,27 @@ class Tests
         self::assert(
             'msgctxt is the key, msgid is the label',
             self::hasAll($pot, ['msgctxt "' . $key . '"', 'msgid "Given name"', 'Content-Type: text/plain; charset=UTF-8'])
+        );
+
+        self::title(__('The form\'s own messages are offered for translation', 'lonsda-light-form'));
+        $settings = Forms::get($form_id)['settings'];
+        $textId   = $settings['text_id'] ?? '';
+        $offered  = Translations::strings($form_id);
+        $expected = [
+            $textId . '__success_message',
+            $textId . '__auto_reply_subject',
+            $textId . '__auto_reply_message',
+        ];
+        $missing  = array_diff($expected, array_keys($offered));
+        self::assert(
+            $missing ? 'missing: ' . implode(', ', $missing) : implode(', ', $expected),
+            [] === $missing
+        );
+
+        self::title(__('The text id prefixes them, so two forms stay apart', 'lonsda-light-form'));
+        self::assert(
+            $textId,
+            '' !== $textId && 0 === strpos($expected[0], $textId . '__')
         );
 
         self::title(__('The submit button shares one key across every form', 'lonsda-light-form'));

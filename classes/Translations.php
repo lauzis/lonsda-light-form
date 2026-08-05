@@ -259,6 +259,13 @@ class Translations
                 (string) ($settings['submit_label'] ?? '') ?: FormBuilder::defaultSubmitLabel(),
                 $title
             );
+
+            // The form's own wording — confirmation, notification, auto reply.
+            // Keyed by the form's text id rather than shared, because two forms
+            // saying "Thank you" may well want to say it differently.
+            foreach (Strings::formStrings($settings) as $key => $text) {
+                self::collect($strings, $key, $text, $title);
+            }
         }
 
         ksort($strings);

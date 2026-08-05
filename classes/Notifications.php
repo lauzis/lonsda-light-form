@@ -172,6 +172,10 @@ class Notifications
             $subject = sprintf(__('New submission: %s', 'lonsda-light-form'), (string) ($form['title'] ?? ''));
         }
 
+        // Translated before the placeholders are filled in, so a translation
+        // can put {form_title} wherever that language wants it.
+        $subject = Strings::get($subject, (string) ($settings['notify_subject_key'] ?? ''));
+
         return self::replace($subject, $tokens);
     }
 
@@ -189,7 +193,10 @@ class Notifications
             return self::defaultBody($tokens);
         }
 
-        return self::replace($template, $tokens);
+        return self::replace(
+            Strings::get($template, (string) ($settings['notify_message_key'] ?? '')),
+            $tokens
+        );
     }
 
     /**

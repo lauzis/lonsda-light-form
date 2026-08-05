@@ -243,6 +243,29 @@ rename to mail     →  field_mail_label,   field_mail_placeholder
 A field with no placeholder contributes no placeholder string. That is a field
 without one, not a string waiting to be translated.
 
+### The form's own messages
+
+The confirmation, the notification and the auto reply are the form *speaking*
+rather than asking, so they are keyed to the form rather than shared across the
+site — two forms both saying "Thank you" may want to say it differently, whereas
+two fields both labelled `Email` rarely do.
+
+The prefix is the form's **Text ID**, on the Fields tab:
+
+```
+contact-form__success_message
+contact-form__notification_subject     contact-form__notification_message
+contact-form__auto_reply_subject       contact-form__auto_reply_message
+```
+
+It is filled in from the title when the form is first saved and then left alone.
+Unlike a field key, it does **not** follow a rename: a field is renamed lightly,
+a form is retitled for presentation, and having every message translation vanish
+because somebody tidied a title would be a poor trade.
+
+Each is translated *before* its placeholders are filled in, so a translation can
+put `{name}` where that language wants it rather than where English had it.
+
 The submit button is keyed `form_submit` — one key for every form on the site,
 because "Send" is "Send" everywhere and a key per form would mean translating
 the same word once for each. Its wording stays editable per form; only the
@@ -354,6 +377,25 @@ one nothing wears.
 
 Rejected inputs also carry `aria-invalid="true"` and an `aria-describedby`
 pointing at their message, so the reason is announced and not merely coloured.
+
+## Auto reply
+
+A form can email whoever submitted it, confirming the message arrived. On the
+**Auto reply** tab: a switch, a subject and a message, with wording that ships
+ready to send.
+
+Off unless switched on. It mails an address a stranger typed into a public form
+— which is how a form becomes a way of sending mail to somebody who never asked
+for it — so it should be a decision rather than a discovery.
+
+The address comes **only** from a field with email validation. A field merely
+named something like one has never been checked, and guessing would mean mailing
+whatever was typed into it. Without such a field nothing is sent and the reason
+is logged.
+
+Same placeholders as a notification, sent as HTML, passed through
+`wp_kses_post()` on the way out. `lonsda_form_auto_reply` filters it; returning
+an empty array sends nothing.
 
 ## Spam
 

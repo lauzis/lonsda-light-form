@@ -77,6 +77,49 @@ class Strings
             (string) ($settings['submit_key'] ?? ''),
             (string) ($settings['submit_label'] ?? '') ?: FormBuilder::defaultSubmitLabel()
         );
+
+        foreach (self::formStrings($settings) as $key => $text) {
+            self::registerOne($key, $text);
+        }
+    }
+
+    /**
+     * The form's own wording — what it says rather than what it asks.
+     *
+     * Gathered in one place so the translations page, the registration above
+     * and anything else all agree on what a form consists of.
+     *
+     * @param array $settings Stored form definition.
+     * @return array<string, string> Key => original text.
+     */
+    public static function formStrings(array $settings): array
+    {
+        $strings = [];
+
+        $pairs = [
+            'success_key'            => ['success_message', [FormBuilder::class, 'defaultSuccessMessage']],
+            'notify_subject_key'     => ['notify_subject', null],
+            'notify_message_key'     => ['notify_message', null],
+            'auto_reply_subject_key' => ['auto_reply_subject', [FormBuilder::class, 'defaultAutoReplySubject']],
+            'auto_reply_message_key' => ['auto_reply_message', [FormBuilder::class, 'defaultAutoReplyMessage']],
+        ];
+
+        foreach ($pairs as $keyName => [$valueName, $fallback]) {
+            $key  = (string) ($settings[$keyName] ?? '');
+            $text = trim((string) ($settings[$valueName] ?? ''));
+
+            // The shipped default stands in for an empty box, because that is
+            // what gets sent — translating nothing would translate nothing.
+            if ('' === $text && $fallback) {
+                $text = (string) call_user_func($fallback);
+            }
+
+            if ('' !== $key && '' !== $text) {
+                $strings[$key] = $text;
+            }
+        }
+
+        return $strings;
     }
 
     private static function registerOne(string $key, string $text): void

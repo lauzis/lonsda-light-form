@@ -315,6 +315,24 @@ $llf_settings_url    = admin_url('admin.php?page=' . LLF_SLUG . '-settings');
         <?php esc_html_e('Two forms with a field named the same way therefore share a translation, which is usually what you want — "Email" is "Email" everywhere. Give a field a distinct name where it should read differently.', 'lonsda-light-form'); ?>
     </p>
 
+    <h3><?php esc_html_e('The form\'s own messages', 'lonsda-light-form'); ?></h3>
+    <p style="max-width:860px;">
+        <?php esc_html_e('The confirmation, the notification and the auto reply are the form speaking rather than asking, so they are keyed to the form rather than shared across the site. Two forms both saying "Thank you" may well want to say it differently, whereas two fields both labelled "Email" rarely do.', 'lonsda-light-form'); ?>
+    </p>
+    <p style="max-width:860px;">
+        <?php esc_html_e('The prefix is the form\'s Text ID, on the Fields tab. It is filled in from the title when the form is first saved and then left alone — changing it orphans any translation already made against the old one, which is why it does not follow the title the way a field key follows a field name.', 'lonsda-light-form'); ?>
+    </p>
+    <table class="widefat striped" style="max-width:860px;margin-bottom:20px;">
+        <tbody>
+            <tr><th style="width:44%;"><?php esc_html_e('Message after submission', 'lonsda-light-form'); ?></th><td><code>&lt;text-id&gt;__success_message</code></td></tr>
+            <tr><th><?php esc_html_e('Notification subject and message', 'lonsda-light-form'); ?></th><td><code>__notification_subject</code>, <code>__notification_message</code></td></tr>
+            <tr><th><?php esc_html_e('Auto reply subject and message', 'lonsda-light-form'); ?></th><td><code>__auto_reply_subject</code>, <code>__auto_reply_message</code></td></tr>
+        </tbody>
+    </table>
+    <p style="max-width:860px;">
+        <?php esc_html_e('Each is translated before its placeholders are filled in, so a translation can put {name} wherever that language wants it rather than where English happened to have it.', 'lonsda-light-form'); ?>
+    </p>
+
     <h3><?php esc_html_e('Translating them here', 'lonsda-light-form'); ?></h3>
     <p style="max-width:860px;">
         <?php
@@ -382,6 +400,20 @@ $llf_settings_url    = admin_url('admin.php?page=' . LLF_SLUG . '-settings');
             </tr>
         </tbody>
     </table>
+
+    <h2><?php esc_html_e('Auto reply', 'lonsda-light-form'); ?></h2>
+    <p style="max-width:860px;">
+        <?php esc_html_e('A form can email the person who submitted it, confirming that the message arrived. Switch it on per form on the Auto reply tab and edit the wording there — it ships with something sensible that promises nothing the site cannot keep.', 'lonsda-light-form'); ?>
+    </p>
+    <p style="max-width:860px;">
+        <?php esc_html_e('It is off unless you turn it on. This mails an address a stranger typed into a public form, which is how a form becomes a way of sending mail to somebody who never asked for it — worth switching on deliberately rather than discovering later.', 'lonsda-light-form'); ?>
+    </p>
+    <p style="max-width:860px;">
+        <?php esc_html_e('The address comes only from a field with email validation. A field merely named something like one has never been checked, and guessing would mean mailing whatever was typed into it. Without such a field nothing is sent, and the reason is logged.', 'lonsda-light-form'); ?>
+    </p>
+    <p style="max-width:860px;">
+        <?php esc_html_e('It takes the same placeholders as a notification and is sent as HTML. Keep it short, and leave out anything the visitor did not tell you — their IP address has no business in a message addressed to them.', 'lonsda-light-form'); ?>
+    </p>
 
     <h2><?php esc_html_e('Styling a rejected submission', 'lonsda-light-form'); ?></h2>
     <p style="max-width:860px;">

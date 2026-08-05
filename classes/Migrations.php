@@ -39,6 +39,8 @@ class Migrations
         // The submit button's key stopped being per form; stored definitions
         // still carry the old one until they are rebuilt.
         $runner->add('0.15.0', [self::class, 'reprojectForms']);
+        // Gives every existing form a text id and the keys derived from it.
+        $runner->add('0.17.0', [self::class, 'reprojectForms']);
 
         return $runner;
     }

@@ -38,6 +38,9 @@ class Transfer
         'notify_subject'  => 'llf_notify_subject',
         'notify_message'  => 'llf_notify_message',
         'notify_reply_to' => 'llf_notify_reply_to',
+        'auto_reply'         => 'llf_auto_reply',
+        'auto_reply_subject' => 'llf_auto_reply_subject',
+        'auto_reply_message' => 'llf_auto_reply_message',
         'store_entries'   => 'llf_store_entries',
         'recaptcha'       => 'llf_recaptcha',
     ];

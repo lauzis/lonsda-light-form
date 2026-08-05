@@ -40,6 +40,11 @@ class FormBuilder
         }
 
         $fieldsTab = [
+            // Form-level identity, above the fields because everything else
+            // about the form is named after it.
+            Field::make('text', 'llf_text_id', __('Text ID', 'lonsda-light-form'))
+                ->set_help_text(__('Names this form\'s own messages for translation — the confirmation, the notification and the auto reply all key off it. Filled in from the title when the form is first saved and then left alone: changing it orphans any translation already made against the old one.', 'lonsda-light-form')),
+
             Field::make('complex', 'llf_fields', __('Fields', 'lonsda-light-form'))
                 ->set_help_text(__('The inputs this form asks for, in the order they appear.', 'lonsda-light-form'))
                 ->add_fields([
@@ -178,12 +183,35 @@ class FormBuilder
                 ->set_help_text(__('Listed under Lonsda Forms → Entries. Storing them means a notification that never arrives is not a submission lost.', 'lonsda-light-form')),
         ];
 
+        $autoReplyTab = [
+            // Off by default. It emails whoever typed an address into a public
+            // form, so it should be switched on deliberately rather than found
+            // to have been running.
+            Field::make('checkbox', 'llf_auto_reply', __('Send an auto reply', 'lonsda-light-form'))
+                ->set_help_text(__('Emails the person who submitted the form, to the address they gave. Needs a field with email validation — without one there is nowhere to send it.', 'lonsda-light-form')),
+
+            Field::make('text', 'llf_auto_reply_subject', __('Subject', 'lonsda-light-form'))
+                ->set_default_value(self::defaultAutoReplySubject())
+                ->set_conditional_logic([
+                    ['field' => 'llf_auto_reply', 'value' => true],
+                ]),
+
+            Field::make('rich_text', 'llf_auto_reply_message', __('Message', 'lonsda-light-form'))
+                ->set_settings(['media_buttons' => false])
+                ->set_default_value(self::defaultAutoReplyMessage())
+                ->set_help_text(__('The same placeholders as a notification: {field_name} for an answer, {form_title}, {site_name} and the rest. Written to the visitor, so keep it short and do not include their IP address or anything else they did not tell you.', 'lonsda-light-form'))
+                ->set_conditional_logic([
+                    ['field' => 'llf_auto_reply', 'value' => true],
+                ]),
+        ];
+
         Container::make('post_meta', __('Form Structure', 'lonsda-light-form'))
             ->where('post_type', '=', Forms::POST_TYPE)
             ->add_tab(__('Fields', 'lonsda-light-form'), $fieldsTab)
             ->add_tab(__('Submit button', 'lonsda-light-form'), $buttonTab)
             ->add_tab(__('Confirmation', 'lonsda-light-form'), $confirmationTab)
             ->add_tab(__('Notifications', 'lonsda-light-form'), $notificationsTab)
+            ->add_tab(__('Auto reply', 'lonsda-light-form'), $autoReplyTab)
             ->add_tab(__('Protection', 'lonsda-light-form'), $protectionTab);
     }
 
@@ -224,6 +252,53 @@ class FormBuilder
         return 'field_' . $name . '_label';
     }
 
+    /**
+     * This form's own identifier, for keying the messages that belong to it.
+     *
+     * Generated once from the title and then stored, rather than derived from
+     * it every time. A field's key can follow its name because renaming a field
+     * is a small thing; a form is renamed for presentation, and having every
+     * message translation vanish because somebody tidied up a title would be a
+     * poor trade. Falls back to the post id, which is never empty.
+     */
+    public static function textId(int $post_id): string
+    {
+        $stored = self::meta($post_id, 'llf_text_id');
+        $stored = sanitize_title($stored);
+
+        if ('' !== $stored) {
+            return $stored;
+        }
+
+        $slug = sanitize_title((string) get_post_field('post_name', $post_id));
+
+        if ('' === $slug) {
+            $slug = sanitize_title((string) get_the_title($post_id));
+        }
+
+        $slug = $slug ?: 'form-' . $post_id;
+
+        // Written back so it is visible and stable from here on, rather than
+        // being recomputed — and changing later — behind the scenes.
+        if (function_exists('carbon_set_post_meta')) {
+            carbon_set_post_meta($post_id, 'llf_text_id', $slug);
+        }
+
+        return $slug;
+    }
+
+    /**
+     * The key one of a form's own messages is translated by.
+     *
+     * Prefixed with the form's text id because these are the form's words, not
+     * a field's: two forms both saying "Thank you" may well want to say it
+     * differently, whereas two fields both labelled "Email" rarely do.
+     */
+    public static function formStringKey(string $textId, string $part): string
+    {
+        return $textId . '__' . $part;
+    }
+
     /** The key a field's placeholder is translated by. */
     public static function generatedPlaceholderKey(string $name): string
     {
@@ -243,6 +318,26 @@ class FormBuilder
     public static function generatedSubmitKey(): string
     {
         return 'form_submit';
+    }
+
+    /** Subject a new form's auto reply is prefilled with. */
+    public static function defaultAutoReplySubject(): string
+    {
+        return __('We have received your message — {site_name}', 'lonsda-light-form');
+    }
+
+    /**
+     * The auto reply as shipped.
+     *
+     * Says only what is true of every enquiry: it arrived, and somebody will
+     * read it. Promising a timescale the site cannot keep is worse than
+     * promising nothing.
+     */
+    public static function defaultAutoReplyMessage(): string
+    {
+        return '<p>' . __('Thank you for getting in touch.', 'lonsda-light-form') . '</p>'
+            . '<p>' . __('Your message has reached us and we will read it. If it needs an answer, we will reply as soon as we can — please bear with us.', 'lonsda-light-form') . '</p>'
+            . '<p>' . __('There is no need to send it again.', 'lonsda-light-form') . '</p>';
     }
 
     /** Wording used when a form does not set its own. */
@@ -369,6 +464,7 @@ class FormBuilder
             ? trim((string) carbon_get_post_meta($post_id, 'llf_submit_label'))
             : '';
 
+        $textId    = self::textId($post_id);
         $submitKey = self::generatedSubmitKey();
 
         $success = function_exists('carbon_get_post_meta')
@@ -393,12 +489,25 @@ class FormBuilder
             'recaptcha'       => $recaptcha,
             'success_message' => $success,
             'hide_on_success' => $hide,
+            'text_id'         => $textId,
             'submit_label'    => $submit,
             'submit_key'      => $submitKey,
+            // Keys for the form's own wording, so whatever renders or sends it
+            // does not have to know how they are put together.
+            'success_key'          => self::formStringKey($textId, 'success_message'),
+            'notify_subject_key'   => self::formStringKey($textId, 'notification_subject'),
+            'notify_message_key'   => self::formStringKey($textId, 'notification_message'),
+            'auto_reply_subject_key' => self::formStringKey($textId, 'auto_reply_subject'),
+            'auto_reply_message_key' => self::formStringKey($textId, 'auto_reply_message'),
             'notify_to'       => self::meta($post_id, 'llf_notify_to'),
             'notify_subject'  => self::meta($post_id, 'llf_notify_subject'),
             'notify_message'  => self::meta($post_id, 'llf_notify_message'),
             'notify_reply_to' => self::meta($post_id, 'llf_notify_reply_to'),
+            'auto_reply'      => function_exists('carbon_get_post_meta')
+                ? (bool) carbon_get_post_meta($post_id, 'llf_auto_reply')
+                : false,
+            'auto_reply_subject' => self::meta($post_id, 'llf_auto_reply_subject'),
+            'auto_reply_message' => self::meta($post_id, 'llf_auto_reply_message'),
             'store_entries'   => function_exists('carbon_get_post_meta')
                 ? (bool) carbon_get_post_meta($post_id, 'llf_store_entries')
                 : true,

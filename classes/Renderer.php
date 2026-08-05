@@ -79,6 +79,11 @@ class Renderer
                 $success_message = FormBuilder::defaultSuccessMessage();
             }
 
+            $success_message = Strings::get(
+                $success_message,
+                (string) ($form['settings']['success_key'] ?? '')
+            );
+
             // Absent means a form saved before the setting existed, which is
             // the same case the field's default covers: hide it.
             $hide = !array_key_exists('hide_on_success', $form['settings'])

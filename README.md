@@ -110,9 +110,14 @@ nobody chose. Clearing the field sends nothing.
 - Both the subject and the message accept placeholders. **Any field can be used
   by its Name** — a field named `surname` becomes `{surname}`. That is the Name,
   not the Label. A blank answer comes out as nothing; a checkbox as Yes or No.
-- `{all_fields}` expands to every field and its answer, one per line, in form
-  order. Leave the message empty and that is what you get, wrapped in the
-  metadata below.
+- `{all_fields}` expands to every field and its answer, in form order: the label
+  in bold, the answer on the line beneath, a blank line before the next. Leave
+  the message empty and that is what you get, wrapped in the metadata below.
+- Notifications are sent as HTML, so a label can be bold and an answer can sit
+  under it rather than beside it. The markup is spare on purpose — paragraphs, a
+  rule, small text — because heavy markup is what gets a message held back as
+  suspicious. A message you write yourself goes through `wpautop`, so the line
+  breaks you typed into the box survive.
 - Also available: `{form_title}`, `{site_name}`, `{site_url}`, `{submitted_at}`,
   `{page_title}`, `{page_url}`, `{language}`, `{locale}`, `{ip}`, `{user_agent}`. A field
   whose Name matches one of these does not displace it — the fixed set has to
@@ -122,8 +127,8 @@ nobody chose. Clearing the field sends nothing.
   It also keeps up with a form that is later renamed. An empty subject falls
   back to `New submission: <form title>`.
 - Naming a field in **Reply-To field** makes replies go to whoever submitted it.
-- The message is plain text — it is read, not designed, and plain text cannot
-  render wrongly or be held back as suspicious markup.
+- Everything a visitor typed is escaped on the way in. It is the one place a
+  stranger's words are placed into markup that lands in someone's inbox.
 
 Because a test form is now a form that would email the administrator, the self
 tests cancel every send at a priority nothing else uses. A full run makes zero

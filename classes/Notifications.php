@@ -193,9 +193,13 @@ class Notifications
             return self::defaultBody($tokens);
         }
 
-        return self::replace(
-            Strings::get($template, (string) ($settings['notify_message_key'] ?? '')),
-            $tokens
+        // wpautop because the box is a plain textarea: whoever wrote the
+        // template pressed Enter and meant it, and the mail goes out as HTML.
+        return wpautop(
+            self::replace(
+                Strings::get($template, (string) ($settings['notify_message_key'] ?? '')),
+                $tokens
+            )
         );
     }
 
@@ -217,62 +221,81 @@ class Notifications
      */
     private static function headers(array $values, array $settings): array
     {
-        $field = trim((string) ($settings['notify_reply_to'] ?? ''));
+        $headers = ['Content-Type: text/html; charset=UTF-8'];
+        $field   = trim((string) ($settings['notify_reply_to'] ?? ''));
 
         if ('' === $field || !isset($values[$field])) {
-            return [];
+            return $headers;
         }
 
         $email = sanitize_email((string) $values[$field]);
 
-        return ('' !== $email && is_email($email)) ? ['Reply-To: ' . $email] : [];
+        if ('' !== $email && is_email($email)) {
+            $headers[] = 'Reply-To: ' . $email;
+        }
+
+        return $headers;
     }
 
     /**
      * The message used when a form has no template of its own.
      *
-     * Plain rather than HTML because it is read, not designed, and a plain
-     * message cannot render wrongly or be held back as suspicious markup.
+     * HTML, so a label can be bold and an answer can sit under it rather than
+     * beside it. Deliberately spare markup — paragraphs, a rule and small
+     * text — because it is read rather than admired, and heavy markup is what
+     * gets a message held back as suspicious.
      *
      * @param array<string, string> $tokens
      */
     private static function defaultBody(array $tokens): string
     {
         $lines = [
-            sprintf(
-                /* translators: %s: form title */
-                __('A form was submitted: %s', 'lonsda-light-form'),
-                $tokens['{form_title}'] ?? ''
-            ),
-            '',
+            '<p>' . esc_html(
+                sprintf(
+                    /* translators: %s: form title */
+                    __('A form was submitted: %s', 'lonsda-light-form'),
+                    $tokens['{form_title}'] ?? ''
+                )
+            ) . '</p>',
             $tokens['{all_fields}'] ?? '',
-            '',
-            str_repeat('-', 40),
-            __('Submitted', 'lonsda-light-form') . ': ' . ($tokens['{submitted_at}'] ?? '') . ' UTC',
+            '<hr>',
         ];
 
-        if ('' !== ($tokens['{page_url}'] ?? '')) {
-            $lines[] = __('Page', 'lonsda-light-form') . ': ' . $tokens['{page_url}'];
+        $meta = [
+            __('Submitted', 'lonsda-light-form') => ($tokens['{submitted_at}'] ?? '') . ' UTC',
+            __('Page', 'lonsda-light-form')      => $tokens['{page_url}'] ?? '',
+            __('Language', 'lonsda-light-form')  => $tokens['{locale}'] ?? ($tokens['{language}'] ?? ''),
+            __('IP address', 'lonsda-light-form') => $tokens['{ip}'] ?? '',
+        ];
+
+        $rows = [];
+
+        foreach ($meta as $label => $value) {
+            if ('' === trim((string) $value)) {
+                continue;
+            }
+
+            $rows[] = esc_html($label) . ': ' . esc_html($value);
         }
 
-        if ('' !== ($tokens['{language}'] ?? '')) {
-            $lines[] = __('Language', 'lonsda-light-form') . ': ' . $tokens['{language}'];
-        }
-
-        $lines[] = __('IP address', 'lonsda-light-form') . ': ' . ($tokens['{ip}'] ?? '');
+        $lines[] = '<p><small>' . implode('<br>', $rows) . '</small></p>';
 
         return implode("\n", $lines);
     }
 
     /**
-     * Every field and its answer, one per line.
+     * Every field and its answer, as blocks: label in bold, answer beneath.
      *
      * Walked in field order rather than in the order values arrived, so it
      * reads like the form and a missing answer is visible as a gap.
+     *
+     * Everything a visitor typed is escaped. This is the one place where a
+     * stranger's words are placed into markup that lands in someone's inbox,
+     * and an answer is text however it was typed.
      */
     private static function fieldList(array $values, array $form): string
     {
-        $lines = [];
+        $blocks = [];
 
         foreach ($form['settings']['fields'] ?? [] as $field) {
             $name  = (string) ($field['name'] ?? '');
@@ -284,10 +307,16 @@ class Notifications
 
             $value = trim((string) $value);
 
-            $lines[] = (string) ($field['label'] ?? $name) . ': '
-                . ('' === $value ? __('(not answered)', 'lonsda-light-form') : $value);
+            $answer = '' === $value
+                ? '<em>' . esc_html__('(not answered)', 'lonsda-light-form') . '</em>'
+                // Line breaks kept: a textarea answer is written in paragraphs
+                // and collapsing it into one line loses what the person meant.
+                : nl2br(esc_html($value));
+
+            $blocks[] = '<p><strong>' . esc_html((string) ($field['label'] ?? $name)) . ':</strong><br>'
+                . $answer . '</p>';
         }
 
-        return implode("\n", $lines);
+        return implode("\n", $blocks);
     }
 }

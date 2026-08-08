@@ -607,10 +607,20 @@ class Tests
             false !== strpos($subject, self::PREFIX) && false === strpos($subject, '{form_title}')
         );
 
-        self::title(__('The body carries the answers by label', 'lonsda-light-form'));
+        self::title(__('The body sets each label above its answer, in bold', 'lonsda-light-form'));
         self::assert(
-            'labels and values present',
-            self::hasAll((string) ($mail['message'] ?? ''), ['Email: visitor@example.com', 'Message: Hello there'])
+            'label bold, answer on the next line',
+            self::hasAll((string) ($mail['message'] ?? ''), [
+                '<strong>Email:</strong><br>visitor@example.com',
+                '<strong>Message:</strong><br>Hello there',
+            ]),
+            $mail['message'] ?? ''
+        );
+
+        self::title(__('And it is sent as HTML', 'lonsda-light-form'));
+        self::assert(
+            implode(', ', (array) ($mail['headers'] ?? [])),
+            in_array('Content-Type: text/html; charset=UTF-8', (array) ($mail['headers'] ?? []), true)
         );
 
         self::title(__('Replies go to the submitter', 'lonsda-light-form'));
@@ -640,9 +650,31 @@ class Tests
         );
 
         self::title(__('{all_fields} expands to the whole list', 'lonsda-light-form'));
+        // <br> or <br />: a template goes through wpautop, which normalises it.
+        $body = preg_replace('|<br\s*/?>|', '<br>', (string) ($mail['message'] ?? ''));
         self::assert(
-            'labels and answers present',
-            self::hasAll((string) ($mail['message'] ?? ''), ['Email: named@example.com', 'Message: Placeholder body'])
+            'each label bold, above its answer',
+            self::hasAll($body, [
+                '<strong>Email:</strong><br>named@example.com',
+                '<strong>Message:</strong><br>Placeholder body',
+            ]),
+            $body
+        );
+
+        self::title(__('An answer cannot bring markup with it', 'lonsda-light-form'));
+        // The one place a stranger's words are put into markup that lands in
+        // somebody's inbox. Two layers: the submission handler sanitises tags
+        // out on the way in, and this escapes whatever survives on the way out
+        // — so the check is that nothing renders, plus that escaping is
+        // demonstrably happening at all.
+        $sent = [];
+        self::submit($form_id, ['email' => 'named@example.com', 'message' => '<b>bold</b> & <i>italic</i>']);
+        $body = (string) ($sent[0]['message'] ?? '');
+        self::assert(
+            'no tag from the answer renders, and the ampersand is encoded',
+            false === stripos($body, '<b>bold') && false === stripos($body, '<i>italic')
+                && false !== strpos($body, '&amp;'),
+            $body
         );
 
         self::title(__('No placeholder survives into the message', 'lonsda-light-form'));

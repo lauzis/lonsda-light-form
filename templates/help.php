@@ -208,7 +208,7 @@ $llf_settings_url    = admin_url('admin.php?page=' . LLF_SLUG . '-settings');
         </thead>
         <tbody>
             <tr><td><code>{<?php esc_html_e('field_name', 'lonsda-light-form'); ?>}</code></td><td><?php esc_html_e('That field\'s answer — {surname} for a field named surname.', 'lonsda-light-form'); ?></td></tr>
-            <tr><td><code>{all_fields}</code></td><td><?php esc_html_e('Every field and its answer, one per line, in the order they appear on the form.', 'lonsda-light-form'); ?></td></tr>
+            <tr><td><code>{all_fields}</code></td><td><?php esc_html_e('Every field and its answer in form order — the label in bold, the answer on the line beneath it, a blank line before the next.', 'lonsda-light-form'); ?></td></tr>
             <tr><td><code>{form_title}</code></td><td><?php esc_html_e('The form\'s title.', 'lonsda-light-form'); ?></td></tr>
             <tr><td><code>{site_name}</code></td><td><?php esc_html_e('The site title.', 'lonsda-light-form'); ?></td></tr>
             <tr><td><code>{site_url}</code></td><td><?php esc_html_e('The site address.', 'lonsda-light-form'); ?></td></tr>

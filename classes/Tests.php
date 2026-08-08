@@ -696,6 +696,9 @@ class Tests
     {
         self::heading(__('Auto reply', 'lonsda-light-form'));
 
+        // This scenario writes a translation of its own; cleanup() removes the
+        // file, and it is the same test locale nothing serves.
+
         $post_id = self::makeForm('AutoReply', [
             ['label' => 'Email', 'name' => 'email', 'type' => 'text', 'validation' => 'email', 'required' => true],
             ['label' => 'Name', 'name' => 'sender_name', 'type' => 'text'],
@@ -752,6 +755,30 @@ class Tests
         self::assert(
             'no script tag survives',
             false === stripos((string) ($sent[0]['message'] ?? ''), '<script')
+        );
+
+        self::title(__('A translated auto reply is the one that goes out', 'lonsda-light-form'));
+        // The whole point of keying these to the form: a visitor writing in
+        // one language should not be answered in another.
+        $settings = Forms::get($form_id)['settings'];
+        Translations::save(self::TEST_LOCALE, [
+            (string) $settings['auto_reply_subject_key'] => 'Paldies, {sender_name}',
+            (string) $settings['auto_reply_message_key'] => '<p>Paldies par ziņu.</p>',
+        ]);
+
+        $sent = [];
+        unload_textdomain(Translations::DOMAIN);
+        load_textdomain(Translations::DOMAIN, Translations::path(self::TEST_LOCALE));
+        self::submit($form_id, ['email' => 'visitor@example.com', 'sender_name' => 'Anna']);
+        unload_textdomain(Translations::DOMAIN);
+        Translations::load();
+
+        $translated = $sent[0] ?? [];
+        self::assert(
+            (string) ($translated['subject'] ?? ''),
+            'Paldies, Anna' === ($translated['subject'] ?? '')
+                && false !== strpos((string) ($translated['message'] ?? ''), 'Paldies par ziņu'),
+            $translated
         );
 
         self::title(__('Without an email field there is nowhere to send it', 'lonsda-light-form'));

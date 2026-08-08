@@ -258,6 +258,10 @@ contact-form__notification_subject     contact-form__notification_message
 contact-form__auto_reply_subject       contact-form__auto_reply_message
 ```
 
+Lower case, dashes for spaces, accents folded — anything else typed into the box
+is converted to that on save, so the field agrees with the keys rather than
+showing `My Form ID` while every key says `my-form-id`.
+
 It is filled in from the title when the form is first saved and then left alone.
 Unlike a field key, it does **not** follow a rename: a field is renamed lightly,
 a form is retitled for presentation, and having every message translation vanish

@@ -320,7 +320,7 @@ $llf_settings_url    = admin_url('admin.php?page=' . LLF_SLUG . '-settings');
         <?php esc_html_e('The confirmation, the notification and the auto reply are the form speaking rather than asking, so they are keyed to the form rather than shared across the site. Two forms both saying "Thank you" may well want to say it differently, whereas two fields both labelled "Email" rarely do.', 'lonsda-light-form'); ?>
     </p>
     <p style="max-width:860px;">
-        <?php esc_html_e('The prefix is the form\'s Text ID, on the Fields tab. It is filled in from the title when the form is first saved and then left alone — changing it orphans any translation already made against the old one, which is why it does not follow the title the way a field key follows a field name.', 'lonsda-light-form'); ?>
+        <?php esc_html_e('The prefix is the form\'s Text ID, on the Fields tab. It is lower case with dashes for spaces — type anything else and it is converted on save, so the box always shows what the keys actually use. It is filled in from the title when the form is first saved and then left alone: changing it orphans any translation already made against the old one, which is why it does not follow the title the way a field key follows a field name.', 'lonsda-light-form'); ?>
     </p>
     <table class="widefat striped" style="max-width:860px;margin-bottom:20px;">
         <tbody>

@@ -817,6 +817,25 @@ class Tests
             [] === $missing
         );
 
+        self::title(__('A hand-typed text id is normalised, not merely used as typed', 'lonsda-light-form'));
+        // The keys were always lower-cased on the way out; the point here is
+        // that the box agrees with them afterwards.
+        carbon_set_post_meta($post_id, 'llf_text_id', 'My Form ID');
+        $resolved = FormBuilder::textId($post_id);
+        $stored   = (string) carbon_get_post_meta($post_id, 'llf_text_id');
+        self::assert(
+            sprintf('resolved %s, box shows %s', $resolved, $stored),
+            'my-form-id' === $resolved && $resolved === $stored
+        );
+
+        self::title(__('Accents and underscores are folded too', 'lonsda-light-form'));
+        carbon_set_post_meta($post_id, 'llf_text_id', 'ĀBOLS_Form');
+        self::assert(FormBuilder::textId($post_id), 'abols_form' === FormBuilder::textId($post_id));
+
+        // Back to the generated one for the rest of the scenario.
+        carbon_set_post_meta($post_id, 'llf_text_id', '');
+        Forms::syncToTable($post_id, get_post($post_id));
+
         self::title(__('The text id prefixes them, so two forms stay apart', 'lonsda-light-form'));
         self::assert(
             $textId,

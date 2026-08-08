@@ -43,7 +43,7 @@ class FormBuilder
             // Form-level identity, above the fields because everything else
             // about the form is named after it.
             Field::make('text', 'llf_text_id', __('Text ID', 'lonsda-light-form'))
-                ->set_help_text(__('Names this form\'s own messages for translation — the confirmation, the notification and the auto reply all key off it. Filled in from the title when the form is first saved and then left alone: changing it orphans any translation already made against the old one.', 'lonsda-light-form')),
+                ->set_help_text(__('Names this form\'s own messages for translation — the confirmation, the notification and the auto reply all key off it. Filled in from the title when the form is first saved and then left alone: changing it orphans any translation already made against the old one. Lower case, dashes for spaces; anything else you type is converted to that on save.', 'lonsda-light-form')),
 
             Field::make('complex', 'llf_fields', __('Fields', 'lonsda-light-form'))
                 ->set_help_text(__('The inputs this form asks for, in the order they appear.', 'lonsda-light-form'))
@@ -263,11 +263,20 @@ class FormBuilder
      */
     public static function textId(int $post_id): string
     {
-        $stored = self::meta($post_id, 'llf_text_id');
-        $stored = sanitize_title($stored);
+        $raw   = self::meta($post_id, 'llf_text_id');
+        $clean = sanitize_title($raw);
 
-        if ('' !== $stored) {
-            return $stored;
+        if ('' !== $clean) {
+            // Written back when typing it produced something different —
+            // lower case, spaces to dashes, accents folded. The box otherwise
+            // shows "My Form ID" while every key says my-form-id, and the one
+            // place you would go to check which is in use is the one place
+            // telling you the wrong answer.
+            if ($clean !== $raw && function_exists('carbon_set_post_meta')) {
+                carbon_set_post_meta($post_id, 'llf_text_id', $clean);
+            }
+
+            return $clean;
         }
 
         $slug = sanitize_title((string) get_post_field('post_name', $post_id));

@@ -155,3 +155,20 @@ register_activation_hook(__FILE__, ['\LonsdaLightForm\Migrations', 'activate']);
 add_action('plugins_loaded', static function (): void {
     load_plugin_textdomain('lonsda-light-form', false, dirname(plugin_basename(__FILE__)) . '/languages');
 });
+
+// The plugin's version in the admin footer, beside WordPress's own — the first
+// thing worth knowing about a page misbehaving is which version drew it.
+add_action( 'admin_init', static function () {
+    if ( ! class_exists( '\\Lauzis\\WpPackages\\Admin\\Footer' ) ) {
+        return;
+    }
+
+    \Lauzis\WpPackages\Admin\Footer::show(
+        'lonsda-light-form',
+        array(
+            'name'    => 'Lonsda Light Form',
+            'version' => defined( 'LLF_VERSION' ) ? LLF_VERSION : '',
+        'types'   => array( 'llf_form' ),
+        )
+    );
+} );

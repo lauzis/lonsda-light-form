@@ -224,7 +224,7 @@ $llf_settings_url    = admin_url('admin.php?page=' . LLF_SLUG . '-settings');
 
     <h3><?php esc_html_e('What you can put in a notification', 'lonsda-light-form'); ?></h3>
     <p style="max-width:860px;">
-        <?php esc_html_e('The subject and the message both accept placeholders. Leave the message empty and it lists every field and its answer; write your own and you decide what goes in it.', 'lonsda-light-form'); ?>
+        <?php esc_html_e('The subject and the message both accept placeholders. Leave the message empty and it lists every field and its answer; write your own and you decide what goes in it. While editing a form, the Placeholders panel beside it lists everything available for that form — including its own fields — and copies a token when you click it.', 'lonsda-light-form'); ?>
     </p>
     <p style="max-width:860px;">
         <strong><?php esc_html_e('Any field can be used by its Name.', 'lonsda-light-form'); ?></strong>
@@ -240,6 +240,7 @@ $llf_settings_url    = admin_url('admin.php?page=' . LLF_SLUG . '-settings');
         </thead>
         <tbody>
             <tr><td><code>{<?php esc_html_e('field_name', 'lonsda-light-form'); ?>}</code></td><td><?php esc_html_e('That field\'s answer — {surname} for a field named surname.', 'lonsda-light-form'); ?></td></tr>
+            <tr><td><code>{submission_details}</code></td><td><?php esc_html_e('Where and when it came from — page, language, IP, timestamp — leaving out whatever it does not have.', 'lonsda-light-form'); ?></td></tr>
             <tr><td><code>{all_fields}</code></td><td><?php esc_html_e('Every field and its answer in form order — the label in bold, the answer on the line beneath it, a blank line before the next.', 'lonsda-light-form'); ?></td></tr>
             <tr><td><code>{form_title}</code></td><td><?php esc_html_e('The form\'s title.', 'lonsda-light-form'); ?></td></tr>
             <tr><td><code>{site_name}</code></td><td><?php esc_html_e('The site title.', 'lonsda-light-form'); ?></td></tr>

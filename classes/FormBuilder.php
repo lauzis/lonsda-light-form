@@ -337,6 +337,26 @@ class FormBuilder
         return 'form_submit';
     }
 
+    /**
+     * The notification as shipped, when a form writes none of its own.
+     *
+     * A single string rather than something assembled in code, so it can be
+     * translated like every other message a form sends. The conditional part —
+     * leaving out a page or an address that is not there — lives in
+     * {submission_details}, which is what made one template possible.
+     */
+    public static function defaultNotificationMessage(): string
+    {
+        return '<p>' . sprintf(
+            /* translators: %s: form title placeholder, replaced when the mail is sent */
+            __('A form was submitted: %s', 'lonsda-light-form'),
+            '{form_title}'
+        ) . '</p>'
+            . "\n{all_fields}\n"
+            . '<hr>' . "\n"
+            . '{submission_details}';
+    }
+
     /** Subject a new form's auto reply is prefilled with. */
     public static function defaultAutoReplySubject(): string
     {

@@ -604,6 +604,95 @@ class Admin
         wp_send_json($result);
     }
 
+    /**
+     * A reference panel of placeholders, beside the form editor.
+     *
+     * The fixed ones could be written into the help text, but the useful half
+     * cannot: which field tokens exist depends on the form being edited, and
+     * that is exactly what somebody writing a notification needs to hand.
+     */
+    public static function registerPlaceholderBox(): void
+    {
+        add_meta_box(
+            'llf-placeholders',
+            __('Placeholders', 'lonsda-light-form'),
+            [self::class, 'renderPlaceholderBox'],
+            \LonsdaLightForm\Forms::POST_TYPE,
+            'side',
+            // Below Publish, which sits at 'core'.
+            'default'
+        );
+    }
+
+    /** @param \WP_Post $post */
+    public static function renderPlaceholderBox($post): void
+    {
+        $form   = \LonsdaLightForm\Forms::get(\LonsdaLightForm\Forms::tableIdForPost((int) $post->ID));
+        $fields = $form['settings']['fields'] ?? [];
+
+        $fixed = [
+            '{all_fields}'         => __('Every field and its answer, label in bold', 'lonsda-light-form'),
+            '{submission_details}' => __('Page, language, IP and time, omitting any it lacks', 'lonsda-light-form'),
+            '{form_title}'         => __('This form\'s title', 'lonsda-light-form'),
+            '{site_name}'          => __('The site title', 'lonsda-light-form'),
+            '{site_url}'           => __('The site address', 'lonsda-light-form'),
+            '{submitted_at}'       => __('When it was submitted, UTC', 'lonsda-light-form'),
+            '{page_title}'         => __('The page the form was on', 'lonsda-light-form'),
+            '{page_url}'           => __('That page\'s address', 'lonsda-light-form'),
+            '{language}'           => __('Language code, e.g. lv', 'lonsda-light-form'),
+            '{locale}'             => __('Full locale, e.g. lv_LV', 'lonsda-light-form'),
+            '{ip}'                 => __('Submitter\'s IP address', 'lonsda-light-form'),
+            '{user_agent}'         => __('Their browser', 'lonsda-light-form'),
+        ];
+        ?>
+        <div class="llf-placeholders">
+            <p class="description">
+                <?php esc_html_e('For the notification and auto reply. Click one to copy it.', 'lonsda-light-form'); ?>
+            </p>
+
+            <h4><?php esc_html_e('This form\'s fields', 'lonsda-light-form'); ?></h4>
+
+            <?php if (!$fields) : ?>
+                <p class="description">
+                    <?php esc_html_e('Save the form and its fields appear here, one token each.', 'lonsda-light-form'); ?>
+                </p>
+            <?php else : ?>
+                <ul class="llf-placeholder-list">
+                    <?php foreach ($fields as $field) : ?>
+                        <li>
+                            <code class="llf-copy" tabindex="0" role="button"><?php echo esc_html('{' . $field['name'] . '}'); ?></code>
+                            <span class="description"><?php echo esc_html((string) ($field['label'] ?? '')); ?></span>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+            <?php endif; ?>
+
+            <h4><?php esc_html_e('Always available', 'lonsda-light-form'); ?></h4>
+            <ul class="llf-placeholder-list">
+                <?php foreach ($fixed as $token => $what) : ?>
+                    <li>
+                        <code class="llf-copy" tabindex="0" role="button"><?php echo esc_html($token); ?></code>
+                        <span class="description"><?php echo esc_html($what); ?></span>
+                    </li>
+                <?php endforeach; ?>
+            </ul>
+
+            <p class="description">
+                <?php esc_html_e('A field named the same as a fixed one does not replace it — the fixed set means the same on every form.', 'lonsda-light-form'); ?>
+            </p>
+        </div>
+
+        <style>
+            .llf-placeholder-list { margin: 4px 0 14px; }
+            .llf-placeholder-list li { margin: 0 0 6px; line-height: 1.4; }
+            .llf-placeholder-list code { cursor: pointer; display: inline-block; }
+            .llf-placeholder-list code:hover { background: #2271b1; color: #fff; }
+            .llf-placeholder-list .description { display: block; font-size: 11px; }
+            .llf-copied { background: #00a32a !important; color: #fff !important; }
+        </style>
+        <?php
+    }
+
     /** Loads the form editor's own script, for the Testing tab. */
     public static function enqueueFormEditor(): void
     {

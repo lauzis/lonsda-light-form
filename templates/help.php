@@ -224,7 +224,7 @@ $llf_settings_url    = admin_url('admin.php?page=' . LLF_SLUG . '-settings');
 
     <h3><?php esc_html_e('What you can put in a notification', 'lonsda-light-form'); ?></h3>
     <p style="max-width:860px;">
-        <?php esc_html_e('The subject and the message both accept placeholders. Leave the message empty and it lists every field and its answer; write your own and you decide what goes in it.', 'lonsda-light-form'); ?>
+        <?php esc_html_e('The subject and the message both accept placeholders. Leave the message empty and it lists every field and its answer; write your own and you decide what goes in it. While editing a form, the Placeholders panel beside it lists everything available for that form — including its own fields — and copies a token when you click it.', 'lonsda-light-form'); ?>
     </p>
     <p style="max-width:860px;">
         <strong><?php esc_html_e('Any field can be used by its Name.', 'lonsda-light-form'); ?></strong>

@@ -157,6 +157,10 @@ nobody chose. Clearing the field sends nothing.
   rule, small text — because heavy markup is what gets a message held back as
   suspicious. A message you write yourself goes through `wpautop`, so the line
   breaks you typed into the box survive.
+The form editor lists them all in a **Placeholders** panel under Publish,
+including this form's own field tokens by name and label — which is the half
+that cannot be documented, since it depends on the form. Click one to copy it.
+
 - `{submission_details}` is the small block of where and when it came from —
   page, language, IP, timestamp — with any of those it does not have left out.
   That conditional part is a placeholder rather than code so the default message

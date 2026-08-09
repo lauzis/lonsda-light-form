@@ -8,15 +8,21 @@ components the other plugins in this account use.
 
 ## Why it exists
 
-This site ran on Gravity Forms until its licence lapsed. Renewing buys support
-and updates for a great deal of software — conditional logic, multi-page forms,
-payment gateways, dozens of integrations — and reviewing what was actually in
-use turned up four contact forms with text fields, a checkbox and an email
-notification.
+This site ran on Gravity Forms, which is an excellent plugin. Nothing here is a
+complaint about it.
 
-So this replaces that, and only that. It is not a Gravity Forms clone and would
-be a poor one: what it is instead is small enough to read in an afternoon, with
-no licence to renew and no upsell.
+When its licence came up for renewal we looked at what we were actually using,
+and it was a very small part of what it offers: receive a contact form, store
+what was submitted, send an email about it. Conditional logic, multi-page forms,
+payment gateways, calculations, the integrations directory — all of it real,
+well built, and none of it in use on this site. Renewing would have paid for a
+great deal we had never touched.
+
+So this does the part we needed. It is not a replacement for Gravity Forms and
+should not be chosen over it by anyone using more than a fraction of it — the
+comparison below is there to make that easy to check. What it is instead is
+small: one person can read the whole of it, there is no licence to renew, and
+nothing in it is trying to sell you the paid version.
 
 ### Against Gravity Forms
 
@@ -35,9 +41,10 @@ no licence to renew and no upsell.
 | Integrations | a hook | Mailchimp, Stripe, HubSpot, Zapier and many more |
 | Licence | none | annual |
 
-The right-hand column is why Gravity Forms costs what it does. If you need any of
-it, buy it — this is not a substitute. The point of the table is the left-hand
-column: on this site, that was the whole requirement.
+The right-hand column is why Gravity Forms costs what it does, and it is worth
+the money to anyone using it. If you need any of that, buy it — this is not a
+substitute. The point of the table is the left-hand column: on this site, that
+narrow list was the whole requirement.
 
 What replaced the integrations is one action. A submission is handed to
 `lonsda_form_submitted` and the theme decides what it means — here, adding the
@@ -475,8 +482,16 @@ named something like one has never been checked, and guessing would mean mailing
 whatever was typed into it. Without such a field nothing is sent and the reason
 is logged.
 
-Same placeholders as a notification, sent as HTML, passed through
-`wp_kses_post()` on the way out. `lonsda_form_auto_reply` filters it; returning
+Same placeholders as a notification, passed through `wp_kses_post()` on the way
+out, and sent as **both** an HTML part and a plain-text one.
+
+The text part matters: `wp_mail()` sends a single body, so declaring it HTML and
+stopping there means a client showing plain text — or a mail setup that strips
+the markup — gets the whole message flattened into one unbroken paragraph.
+The text version is built from the HTML with the shape kept: a blank line
+between paragraphs, single breaks where `<br>` was, and links carrying their
+address, since a text reader has nothing to click. Notifications are sent the
+same way. `lonsda_form_auto_reply` filters it; returning
 an empty array sends nothing.
 
 ## Spam

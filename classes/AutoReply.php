@@ -87,7 +87,10 @@ class AutoReply
             return;
         }
 
-        $sent = wp_mail(
+        // Both parts: the HTML as written and a text version built from it. A
+        // client showing plain text otherwise gets the markup flattened into
+        // one unbroken paragraph.
+        $sent = Mail::html(
             $mail['to'],
             (string) ($mail['subject'] ?? ''),
             (string) ($mail['message'] ?? ''),

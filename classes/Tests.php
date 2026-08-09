@@ -753,6 +753,37 @@ class Tests
                 && false !== strpos((string) ($mail['message'] ?? ''), 'Hello Anna')
         );
 
+        self::title(__('The text version keeps the paragraph breaks', 'lonsda-light-form'));
+        // The reason both parts are sent: flattened markup arrives as one
+        // unbroken block, which is how an auto reply reads as a wall of text.
+        $text = Mail::toText('<p>One.</p><p>Two.</p>');
+        self::assert(
+            str_replace("\n", '\\n', $text),
+            "One.\n\nTwo." === $text
+        );
+
+        self::title(__('A line break inside a paragraph survives as one', 'lonsda-light-form'));
+        self::assert(
+            str_replace("\n", '\\n', Mail::toText('<p>One<br>Two</p>')),
+            "One\nTwo" === Mail::toText('<p>One<br>Two</p>')
+        );
+
+        self::title(__('A link carries its address', 'lonsda-light-form'));
+        // A text reader has nothing to click.
+        self::assert(
+            Mail::toText('<p>See <a href="https://example.com">the page</a>.</p>'),
+            'See the page (https://example.com).' === Mail::toText('<p>See <a href="https://example.com">the page</a>.</p>')
+        );
+
+        self::title(__('Entities are decoded, not left as markup', 'lonsda-light-form'));
+        self::assert(Mail::toText('<p>Tom &amp; Jerry</p>'), 'Tom & Jerry' === Mail::toText('<p>Tom &amp; Jerry</p>'));
+
+        self::title(__('Nested blocks do not pile up blank lines', 'lonsda-light-form'));
+        self::assert(
+            str_replace("\n", '\\n', Mail::toText('<div><p>One.</p></div><div><p>Two.</p></div>')),
+            "One.\n\nTwo." === Mail::toText('<div><p>One.</p></div><div><p>Two.</p></div>')
+        );
+
         self::title(__('It is sent as HTML', 'lonsda-light-form'));
         self::assert(
             implode(', ', (array) ($mail['headers'] ?? [])),

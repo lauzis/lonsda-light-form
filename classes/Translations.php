@@ -342,11 +342,11 @@ class Translations
             }
         }
 
-        ksort($strings);
-
-        // Stable within a group: the editor renders in this order and a heading
-        // is emitted whenever the group changes, so grouping has to be the
-        // outer sort or the headings would repeat.
+        // By group, then by the order they were collected in. Alphabetical was
+        // never meaningful and actively wrong for a form's own messages, where
+        // it put the body above the subject — an email is written subject
+        // first. Collection order is the order a person meets things: fields as
+        // they appear on the form, then subject before body.
         $order = array_keys(self::groups());
 
         uasort(
@@ -355,7 +355,11 @@ class Translations
                 $ga = array_search($a['group'] ?? self::GROUP_FIELDS, $order, true);
                 $gb = array_search($b['group'] ?? self::GROUP_FIELDS, $order, true);
 
-                return $ga === $gb ? 0 : $ga <=> $gb;
+                if ($ga !== $gb) {
+                    return $ga <=> $gb;
+                }
+
+                return ($a['seq'] ?? 0) <=> ($b['seq'] ?? 0);
             }
         );
 
@@ -372,7 +376,12 @@ class Translations
         }
 
         if (!isset($strings[$key])) {
-            $strings[$key] = ['text' => $text, 'forms' => [], 'group' => $group];
+            // Position in collection order, which is what the listing sorts by
+            // within a group. Shared across forms: a key first seen on form one
+            // keeps its place when form two mentions it again.
+            static $seq = 0;
+
+            $strings[$key] = ['text' => $text, 'forms' => [], 'group' => $group, 'seq' => ++$seq];
         }
 
         if (!in_array($form, $strings[$key]['forms'], true)) {

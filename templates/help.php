@@ -15,6 +15,38 @@ $llf_settings_url    = admin_url('admin.php?page=' . LLF_SLUG . '-settings');
         <?php esc_html_e('The first section is the short path from nothing to a working form. Everything after it is reference — what each setting does, and why it behaves the way it does.', 'lonsda-light-form'); ?>
     </p>
 
+    <h2><?php esc_html_e('Why this plugin exists', 'lonsda-light-form'); ?></h2>
+    <p style="max-width:860px;">
+        <?php esc_html_e('This site ran on Gravity Forms until the licence lapsed. Looking at what was actually being used turned up a handful of contact forms with text fields, a checkbox and an email notification — a small part of what that plugin does and what its renewal pays for.', 'lonsda-light-form'); ?>
+    </p>
+    <p style="max-width:860px;">
+        <?php esc_html_e('So this replaces that, and only that. It is not a Gravity Forms clone and would be a poor one: no conditional logic, no multi-page forms, no payment gateways, no integrations directory. What it is instead is small, readable, and has no licence to renew.', 'lonsda-light-form'); ?>
+    </p>
+    <table class="widefat striped" style="max-width:860px;margin-bottom:20px;">
+        <thead>
+            <tr>
+                <th style="width:26%;"></th>
+                <th style="width:37%;"><?php esc_html_e('This plugin', 'lonsda-light-form'); ?></th>
+                <th><?php esc_html_e('Gravity Forms', 'lonsda-light-form'); ?></th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><th><?php esc_html_e('Field types', 'lonsda-light-form'); ?></th><td><?php esc_html_e('Text, text area, checkbox', 'lonsda-light-form'); ?></td><td><?php esc_html_e('Thirty or so, including uploads, dates and payments', 'lonsda-light-form'); ?></td></tr>
+            <tr><th><?php esc_html_e('Validation', 'lonsda-light-form'); ?></th><td><?php esc_html_e('Required, email, pattern, maximum length', 'lonsda-light-form'); ?></td><td><?php esc_html_e('The same, plus custom validators', 'lonsda-light-form'); ?></td></tr>
+            <tr><th><?php esc_html_e('Conditional logic', 'lonsda-light-form'); ?></th><td>&mdash;</td><td><?php esc_html_e('Fields, pages and notifications', 'lonsda-light-form'); ?></td></tr>
+            <tr><th><?php esc_html_e('Multi-page forms', 'lonsda-light-form'); ?></th><td>&mdash;</td><td><?php esc_html_e('Yes', 'lonsda-light-form'); ?></td></tr>
+            <tr><th><?php esc_html_e('Entries', 'lonsda-light-form'); ?></th><td><?php esc_html_e('Stored, filterable, CSV export', 'lonsda-light-form'); ?></td><td><?php esc_html_e('The same, plus notes, editing and partial entries', 'lonsda-light-form'); ?></td></tr>
+            <tr><th><?php esc_html_e('Notifications', 'lonsda-light-form'); ?></th><td><?php esc_html_e('One per form', 'lonsda-light-form'); ?></td><td><?php esc_html_e('Many per form, routed conditionally', 'lonsda-light-form'); ?></td></tr>
+            <tr><th><?php esc_html_e('Auto reply', 'lonsda-light-form'); ?></th><td><?php esc_html_e('Yes', 'lonsda-light-form'); ?></td><td><?php esc_html_e('Yes', 'lonsda-light-form'); ?></td></tr>
+            <tr><th><?php esc_html_e('Spam', 'lonsda-light-form'); ?></th><td><?php esc_html_e('Honeypot, timing, reCAPTCHA v2', 'lonsda-light-form'); ?></td><td><?php esc_html_e('The same, plus Akismet and v3', 'lonsda-light-form'); ?></td></tr>
+            <tr><th><?php esc_html_e('Integrations', 'lonsda-light-form'); ?></th><td><?php esc_html_e('One action hook', 'lonsda-light-form'); ?></td><td><?php esc_html_e('Mailchimp, Stripe, Zapier and many more', 'lonsda-light-form'); ?></td></tr>
+            <tr><th><?php esc_html_e('Licence', 'lonsda-light-form'); ?></th><td><?php esc_html_e('None', 'lonsda-light-form'); ?></td><td><?php esc_html_e('Annual', 'lonsda-light-form'); ?></td></tr>
+        </tbody>
+    </table>
+    <p style="max-width:860px;">
+        <?php esc_html_e('The right-hand column is why Gravity Forms costs what it does. If you need any of it, buy it — this is not a substitute. The point of the table is the left-hand column: here, that was the whole requirement.', 'lonsda-light-form'); ?>
+    </p>
+
     <h2><?php esc_html_e('Getting started', 'lonsda-light-form'); ?></h2>
     <ol style="max-width:860px;">
         <li>
@@ -346,6 +378,9 @@ $llf_settings_url    = admin_url('admin.php?page=' . LLF_SLUG . '-settings');
         );
         ?>
     </p>
+    <p style="max-width:860px;">
+        <?php esc_html_e('The list is grouped — form fields, submit button, confirmation, notification, auto reply — so it is clear which strings a visitor actually reads and which only you do.', 'lonsda-light-form'); ?>
+    </p>
     <ul style="list-style:disc;padding-left:22px;max-width:860px;">
         <li><?php esc_html_e('An empty box means untranslated, and the original wording is shown instead. Nothing ever renders as a bare key.', 'lonsda-light-form'); ?></li>
         <li><?php esc_html_e('Clearing a box that had a translation removes it.', 'lonsda-light-form'); ?></li>
@@ -400,6 +435,17 @@ $llf_settings_url    = admin_url('admin.php?page=' . LLF_SLUG . '-settings');
             </tr>
         </tbody>
     </table>
+
+    <h2><?php esc_html_e('Testing the emails', 'lonsda-light-form'); ?></h2>
+    <p style="max-width:860px;">
+        <?php esc_html_e('The Testing tab on a form sends its notification or its auto reply to an address you choose — your own to begin with — with made-up answers filled in, so you can see how the message reads when it is full rather than empty.', 'lonsda-light-form'); ?>
+    </p>
+    <p style="max-width:860px;">
+        <?php esc_html_e('It sends through the same code a real submission does, so what arrives is what a visitor would cause: the same wording, placeholders, translations and Reply-To. Only the recipient is swapped, at the last moment. The subject is marked TEST, nothing is stored as an entry, and the IP and browser are left blank rather than recording yours against a message that was never really sent.', 'lonsda-light-form'); ?>
+    </p>
+    <p style="max-width:860px;">
+        <?php esc_html_e('Both buttons read what was last saved, so save the form before testing a change. A button is disabled when its message is not configured, and says what would switch it on.', 'lonsda-light-form'); ?>
+    </p>
 
     <h2><?php esc_html_e('Auto reply', 'lonsda-light-form'); ?></h2>
     <p style="max-width:860px;">

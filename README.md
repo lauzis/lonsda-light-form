@@ -6,6 +6,45 @@ Built on [lauzis/wp-plugin-packages](https://github.com/lauzis/wp-plugin-package
 so its settings page, logging, notices, toasts and migrations are the same
 components the other plugins in this account use.
 
+## Why it exists
+
+This site ran on Gravity Forms until its licence lapsed. Renewing buys support
+and updates for a great deal of software — conditional logic, multi-page forms,
+payment gateways, dozens of integrations — and reviewing what was actually in
+use turned up four contact forms with text fields, a checkbox and an email
+notification.
+
+So this replaces that, and only that. It is not a Gravity Forms clone and would
+be a poor one: what it is instead is small enough to read in an afternoon, with
+no licence to renew and no upsell.
+
+### Against Gravity Forms
+
+| | Lonsda | Gravity Forms |
+| --- | --- | --- |
+| Field types | text, textarea, checkbox | 30-odd, including file upload, date, address, payment |
+| Validation | required, email, regex, max length | the above plus per-field rules and custom validators |
+| Conditional logic | — | fields, pages and notifications |
+| Multi-page forms | — | yes |
+| Entries | stored, listed, filterable, CSV | the above plus notes, editing, bulk actions, partial entries |
+| Notifications | one per form, per-form recipients | many per form, routed by conditional logic |
+| Auto reply | yes | yes |
+| Spam | honeypot, minimum completion time, reCAPTCHA v2 | the above plus Akismet and reCAPTCHA v3 |
+| Translations | keys generated per field, `.po`/`.mo` or WPML | WPML/Polylang integration |
+| Import/export | JSON | JSON |
+| Integrations | a hook | Mailchimp, Stripe, HubSpot, Zapier and many more |
+| Licence | none | annual |
+
+The right-hand column is why Gravity Forms costs what it does. If you need any of
+it, buy it — this is not a substitute. The point of the table is the left-hand
+column: on this site, that was the whole requirement.
+
+What replaced the integrations is one action. A submission is handed to
+`lonsda_form_submitted` and the theme decides what it means — here, adding the
+address to the right Mailchimp-style audience for the language it was submitted
+in. That is about thirty lines, and it is exactly as much integration as the
+site needed.
+
 ## What it does
 
 - **Form builder** — fields with labels, placeholders, defaults and validation, edited in a tabbed screen and collapsed to a readable list.

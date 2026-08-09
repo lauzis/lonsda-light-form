@@ -240,6 +240,7 @@ $llf_settings_url    = admin_url('admin.php?page=' . LLF_SLUG . '-settings');
         </thead>
         <tbody>
             <tr><td><code>{<?php esc_html_e('field_name', 'lonsda-light-form'); ?>}</code></td><td><?php esc_html_e('That field\'s answer — {surname} for a field named surname.', 'lonsda-light-form'); ?></td></tr>
+            <tr><td><code>{submission_details}</code></td><td><?php esc_html_e('Where and when it came from — page, language, IP, timestamp — leaving out whatever it does not have.', 'lonsda-light-form'); ?></td></tr>
             <tr><td><code>{all_fields}</code></td><td><?php esc_html_e('Every field and its answer in form order — the label in bold, the answer on the line beneath it, a blank line before the next.', 'lonsda-light-form'); ?></td></tr>
             <tr><td><code>{form_title}</code></td><td><?php esc_html_e('The form\'s title.', 'lonsda-light-form'); ?></td></tr>
             <tr><td><code>{site_name}</code></td><td><?php esc_html_e('The site title.', 'lonsda-light-form'); ?></td></tr>

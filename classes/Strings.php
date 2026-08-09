@@ -104,7 +104,7 @@ class Strings
         $pairs = [
             'success_key'            => ['success_message', [FormBuilder::class, 'defaultSuccessMessage']],
             'notify_subject_key'     => ['notify_subject', null],
-            'notify_message_key'     => ['notify_message', null],
+            'notify_message_key'     => ['notify_message', [FormBuilder::class, 'defaultNotificationMessage']],
             'auto_reply_subject_key' => ['auto_reply_subject', [FormBuilder::class, 'defaultAutoReplySubject']],
             'auto_reply_message_key' => ['auto_reply_message', [FormBuilder::class, 'defaultAutoReplyMessage']],
         ];

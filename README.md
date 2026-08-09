@@ -157,6 +157,10 @@ nobody chose. Clearing the field sends nothing.
   rule, small text — because heavy markup is what gets a message held back as
   suspicious. A message you write yourself goes through `wpautop`, so the line
   breaks you typed into the box survive.
+- `{submission_details}` is the small block of where and when it came from —
+  page, language, IP, timestamp — with any of those it does not have left out.
+  That conditional part is a placeholder rather than code so the default message
+  can be a single string, which is what makes it translatable.
 - Also available: `{form_title}`, `{site_name}`, `{site_url}`, `{submitted_at}`,
   `{page_title}`, `{page_url}`, `{language}`, `{locale}`, `{ip}`, `{user_agent}`. A field
   whose Name matches one of these does not displace it — the fixed set has to

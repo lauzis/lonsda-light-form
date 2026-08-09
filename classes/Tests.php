@@ -651,6 +651,18 @@ class Tests
             false !== strpos((string) ($mail['message'] ?? ''), 'Placeholder body')
         );
 
+        self::title(__('{submission_details} leaves out what it does not have', 'lonsda-light-form'));
+        // The reason the default body can be one translatable string: the part
+        // that varies is a placeholder rather than code around it.
+        $sent = [];
+        self::submit($form_id, ['email' => 'named@example.com', 'message' => 'x']);
+        $body = (string) ($sent[0]['message'] ?? '');
+        self::assert(
+            'no label is left with nothing after it',
+            0 === preg_match('/(Page|IP address|Language): *(<br>|<\/small>)/', $body),
+            $body
+        );
+
         self::title(__('{all_fields} expands to the whole list', 'lonsda-light-form'));
         // <br> or <br />: a template goes through wpautop, which normalises it.
         $body = preg_replace('|<br\s*/?>|', '<br>', (string) ($mail['message'] ?? ''));
@@ -997,6 +1009,18 @@ class Tests
             count($flat) . ' placed, ' . count(Translations::strings($form_id)) . ' collected',
             count($flat) === count(Translations::strings($form_id))
                 && count($flat) === count(array_unique($flat))
+        );
+
+        self::title(__('The notification body is offered even when unwritten', 'lonsda-light-form'));
+        // It has a shipped default like the confirmation and the auto reply, so
+        // there is always something to translate. It had none, and was the only
+        // message a form sends that could not be translated until someone
+        // happened to write their own.
+        $settings = Forms::get($form_id)['settings'];
+        self::assert(
+            (string) $settings['notify_message_key'],
+            '' === trim((string) ($settings['notify_message'] ?? ''))
+                && isset($sections[Translations::GROUP_NOTIFICATION][$settings['notify_message_key']])
         );
 
         self::title(__('The submit button sits with the fields', 'lonsda-light-form'));

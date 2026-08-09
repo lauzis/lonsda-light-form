@@ -144,7 +144,8 @@ class Notifications
 
         $page = !empty($context['post_id']) ? (string) get_permalink((int) $context['post_id']) : '';
 
-        $tokens['{all_fields}']   = self::fieldList($values, $form);
+        $tokens['{all_fields}']         = self::fieldList($values, $form);
+        $tokens['{submission_details}'] = self::details($context);
         $tokens['{form_title}']   = (string) ($form['title'] ?? '');
         $tokens['{site_name}']    = (string) get_bloginfo('name');
         $tokens['{site_url}']     = home_url();
@@ -188,19 +189,21 @@ class Notifications
     private static function message(array $settings, array $tokens): string
     {
         $template = trim((string) ($settings['notify_message'] ?? ''));
+        $written  = '' !== $template;
 
-        if ('' === $template) {
-            return self::defaultBody($tokens);
+        if (!$written) {
+            $template = FormBuilder::defaultNotificationMessage();
         }
 
-        // wpautop because the box is a plain textarea: whoever wrote the
-        // template pressed Enter and meant it, and the mail goes out as HTML.
-        return wpautop(
-            self::replace(
-                Strings::get($template, (string) ($settings['notify_message_key'] ?? '')),
-                $tokens
-            )
+        $body = self::replace(
+            Strings::get($template, (string) ($settings['notify_message_key'] ?? '')),
+            $tokens
         );
+
+        // wpautop only for a hand-written one: that box is a plain textarea and
+        // whoever pressed Enter meant it. The shipped default is already marked
+        // up, and running it through would add empty paragraphs.
+        return $written ? wpautop($body) : $body;
     }
 
     /**
@@ -238,49 +241,36 @@ class Notifications
     }
 
     /**
-     * The message used when a form has no template of its own.
+     * Where and when it came from, as a small block.
      *
-     * HTML, so a label can be bold and an answer can sit under it rather than
-     * beside it. Deliberately spare markup — paragraphs, a rule and small
-     * text — because it is read rather than admired, and heavy markup is what
-     * gets a message held back as suspicious.
-     *
-     * @param array<string, string> $tokens
+     * A placeholder rather than something the default body assembles in code,
+     * because that is what lets the default body be a single string — and a
+     * single string is what can be translated like every other message a form
+     * sends. Rows with nothing in them are left out, which a flat template
+     * could not do for itself.
      */
-    private static function defaultBody(array $tokens): string
+    private static function details(array $context): string
     {
-        $lines = [
-            '<p>' . esc_html(
-                sprintf(
-                    /* translators: %s: form title */
-                    __('A form was submitted: %s', 'lonsda-light-form'),
-                    $tokens['{form_title}'] ?? ''
-                )
-            ) . '</p>',
-            $tokens['{all_fields}'] ?? '',
-            '<hr>',
+        $page = !empty($context['post_id']) ? (string) get_permalink((int) $context['post_id']) : '';
+
+        $rows = [
+            __('Submitted', 'lonsda-light-form')  => (string) ($context['submitted_at'] ?? ''),
+            __('Page', 'lonsda-light-form')       => $page,
+            __('Language', 'lonsda-light-form')   => (string) ($context['locale'] ?? ($context['language'] ?? '')),
+            __('IP address', 'lonsda-light-form') => (string) ($context['ip'] ?? ''),
         ];
 
-        $meta = [
-            __('Submitted', 'lonsda-light-form') => ($tokens['{submitted_at}'] ?? '') . ' UTC',
-            __('Page', 'lonsda-light-form')      => $tokens['{page_url}'] ?? '',
-            __('Language', 'lonsda-light-form')  => $tokens['{locale}'] ?? ($tokens['{language}'] ?? ''),
-            __('IP address', 'lonsda-light-form') => $tokens['{ip}'] ?? '',
-        ];
+        $lines = [];
 
-        $rows = [];
-
-        foreach ($meta as $label => $value) {
-            if ('' === trim((string) $value)) {
+        foreach ($rows as $label => $value) {
+            if ('' === trim($value)) {
                 continue;
             }
 
-            $rows[] = esc_html($label) . ': ' . esc_html($value);
+            $lines[] = esc_html($label) . ': ' . esc_html($value);
         }
 
-        $lines[] = '<p><small>' . implode('<br>', $rows) . '</small></p>';
-
-        return implode("\n", $lines);
+        return $lines ? '<p><small>' . implode('<br>', $lines) . '</small></p>' : '';
     }
 
     /**

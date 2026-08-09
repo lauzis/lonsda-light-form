@@ -17,10 +17,10 @@ $llf_settings_url    = admin_url('admin.php?page=' . LLF_SLUG . '-settings');
 
     <h2><?php esc_html_e('Why this plugin exists', 'lonsda-light-form'); ?></h2>
     <p style="max-width:860px;">
-        <?php esc_html_e('This site ran on Gravity Forms until the licence lapsed. Looking at what was actually being used turned up a handful of contact forms with text fields, a checkbox and an email notification — a small part of what that plugin does and what its renewal pays for.', 'lonsda-light-form'); ?>
+        <?php esc_html_e('This site ran on Gravity Forms, which is an excellent plugin — nothing here is a complaint about it. When the licence came up for renewal we looked at what we were actually using, and it was a very small part of what it offers: receive a contact form, store what was submitted, send an email about it.', 'lonsda-light-form'); ?>
     </p>
     <p style="max-width:860px;">
-        <?php esc_html_e('So this replaces that, and only that. It is not a Gravity Forms clone and would be a poor one: no conditional logic, no multi-page forms, no payment gateways, no integrations directory. What it is instead is small, readable, and has no licence to renew.', 'lonsda-light-form'); ?>
+        <?php esc_html_e('Conditional logic, multi-page forms, payment gateways, calculations, the integrations directory — all real and well built, and none of it in use here. So this does the part we needed and nothing else. It is not a replacement for Gravity Forms and should not be chosen over it by anyone using more than a fraction of it; the table below makes that easy to check.', 'lonsda-light-form'); ?>
     </p>
     <table class="widefat striped" style="max-width:860px;margin-bottom:20px;">
         <thead>
@@ -44,7 +44,7 @@ $llf_settings_url    = admin_url('admin.php?page=' . LLF_SLUG . '-settings');
         </tbody>
     </table>
     <p style="max-width:860px;">
-        <?php esc_html_e('The right-hand column is why Gravity Forms costs what it does. If you need any of it, buy it — this is not a substitute. The point of the table is the left-hand column: here, that was the whole requirement.', 'lonsda-light-form'); ?>
+        <?php esc_html_e('The right-hand column is why Gravity Forms costs what it does, and it is worth the money to anyone using it. If you need any of that, buy it — this is not a substitute. The point of the table is the left-hand column: here, that narrow list was the whole requirement.', 'lonsda-light-form'); ?>
     </p>
 
     <h2><?php esc_html_e('Getting started', 'lonsda-light-form'); ?></h2>

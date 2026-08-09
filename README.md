@@ -15,8 +15,9 @@ use turned up four contact forms with text fields, a checkbox and an email
 notification.
 
 So this replaces that, and only that. It is not a Gravity Forms clone and would
-be a poor one: what it is instead is small enough to read in an afternoon, with
-no licence to renew and no upsell.
+be a poor one. What it is instead is small: one person can read the whole of it,
+there is no licence to renew, and nothing in it is trying to sell you the paid
+version.
 
 ### Against Gravity Forms
 
@@ -475,8 +476,16 @@ named something like one has never been checked, and guessing would mean mailing
 whatever was typed into it. Without such a field nothing is sent and the reason
 is logged.
 
-Same placeholders as a notification, sent as HTML, passed through
-`wp_kses_post()` on the way out. `lonsda_form_auto_reply` filters it; returning
+Same placeholders as a notification, passed through `wp_kses_post()` on the way
+out, and sent as **both** an HTML part and a plain-text one.
+
+The text part matters: `wp_mail()` sends a single body, so declaring it HTML and
+stopping there means a client showing plain text — or a mail setup that strips
+the markup — gets the whole message flattened into one unbroken paragraph.
+The text version is built from the HTML with the shape kept: a blank line
+between paragraphs, single breaks where `<br>` was, and links carrying their
+address, since a text reader has nothing to click. Notifications are sent the
+same way. `lonsda_form_auto_reply` filters it; returning
 an empty array sends nothing.
 
 ## Spam

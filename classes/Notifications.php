@@ -63,7 +63,9 @@ class Notifications
             return;
         }
 
-        $sent = wp_mail(
+        // Both parts, for the same reason as the auto reply: a client showing
+        // plain text should not get the markup run together into one line.
+        $sent = Mail::html(
             $mail['to'],
             (string) ($mail['subject'] ?? ''),
             (string) ($mail['message'] ?? ''),

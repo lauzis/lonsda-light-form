@@ -459,7 +459,7 @@ $llf_settings_url    = admin_url('admin.php?page=' . LLF_SLUG . '-settings');
         <?php esc_html_e('The address comes only from a field with email validation. A field merely named something like one has never been checked, and guessing would mean mailing whatever was typed into it. Without such a field nothing is sent, and the reason is logged.', 'lonsda-light-form'); ?>
     </p>
     <p style="max-width:860px;">
-        <?php esc_html_e('It takes the same placeholders as a notification and is sent as HTML. Keep it short, and leave out anything the visitor did not tell you — their IP address has no business in a message addressed to them.', 'lonsda-light-form'); ?>
+        <?php esc_html_e('It takes the same placeholders as a notification and goes out as both an HTML message and a plain-text one, so a mail client that shows text gets the paragraphs and not one unbroken block. Keep it short, and leave out anything the visitor did not tell you — their IP address has no business in a message addressed to them.', 'lonsda-light-form'); ?>
     </p>
 
     <h2><?php esc_html_e('Styling a rejected submission', 'lonsda-light-form'); ?></h2>

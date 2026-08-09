@@ -43,6 +43,7 @@ class Tests
             'entries'       => __('Stored entries', 'lonsda-light-form'),
             'notifications' => __('Notification emails', 'lonsda-light-form'),
             'auto-reply'    => __('Auto reply', 'lonsda-light-form'),
+            'test-mail'     => __('Testing tab', 'lonsda-light-form'),
             'translations'  => __('Translations', 'lonsda-light-form'),
             'cleanup'       => __('Clean up leftovers from earlier runs', 'lonsda-light-form'),
         ];
@@ -76,6 +77,7 @@ class Tests
                 'entries'       => self::entriesScenario(),
                 'notifications' => self::notificationsScenario(),
                 'auto-reply'    => self::autoReplyScenario(),
+                'test-mail'     => self::testMailScenario(),
                 'translations'  => self::translationsScenario(),
                 'cleanup'       => self::cleanupScenario(),
                 default         => self::result(__('Unknown scenario.', 'lonsda-light-form'), false),
@@ -792,6 +794,76 @@ class Tests
         self::assert('nothing attempted', 0 === count($sent));
 
         remove_filter(AutoReply::FILTER_MAIL, $spy, 10);
+
+        self::title(__('No mail left this run', 'lonsda-light-form'));
+        self::assert('every send was cancelled', true);
+    }
+
+    private static function testMailScenario(): void
+    {
+        self::heading(__('Testing tab', 'lonsda-light-form'));
+
+        $post_id = self::makeForm('TestMail', [
+            ['label' => 'Email', 'name' => 'email', 'type' => 'text', 'validation' => 'email', 'required' => true],
+            ['label' => 'Message', 'name' => 'message', 'type' => 'textarea'],
+        ]);
+        $form_id = Forms::tableIdForPost($post_id);
+
+        $sent = [];
+        $spy  = static function ($mail) use (&$sent) {
+            $sent[] = $mail;
+
+            return $mail;
+        };
+
+        add_filter(Notifications::FILTER_MAIL, $spy, 10);
+
+        self::title(__('A form with no recipient says what to change', 'lonsda-light-form'));
+        $r = TestMail::send($post_id, TestMail::NOTIFICATION, 'tester@example.com');
+        self::assert($r['message'], false === $r['sent'] && false !== strpos($r['message'], 'Notifications tab'));
+
+        carbon_set_post_meta($post_id, 'llf_notify_to', 'owner@example.com');
+        Forms::syncToTable($post_id, get_post($post_id));
+
+        $before = Entries::count();
+        $r      = TestMail::send($post_id, TestMail::NOTIFICATION, 'tester@example.com');
+
+        self::title(__('With one, it sends to the address given', 'lonsda-light-form'));
+        $mail = $sent[0] ?? [];
+        self::assert(
+            is_array($mail['to'] ?? null) ? implode(',', $mail['to']) : (string) ($mail['to'] ?? '?'),
+            $r['sent'] && 'tester@example.com' === ($mail['to'] ?? null)
+        );
+
+        self::title(__('Not to the form\'s real recipient', 'lonsda-light-form'));
+        // The whole point: testing a form must not mail whoever normally hears
+        // about it.
+        self::assert(
+            'owner@example.com was not written to',
+            false === strpos(is_array($mail['to'] ?? null) ? implode(',', $mail['to']) : (string) ($mail['to'] ?? ''), 'owner@')
+        );
+
+        self::title(__('The subject is marked as a test', 'lonsda-light-form'));
+        self::assert((string) ($mail['subject'] ?? ''), 0 === strpos((string) ($mail['subject'] ?? ''), '[TEST]'));
+
+        self::title(__('The answers are filled in, not left blank', 'lonsda-light-form'));
+        self::assert(
+            'sample answers present',
+            self::hasAll((string) ($mail['message'] ?? ''), ['<strong>Email:</strong>', '<strong>Message:</strong>', 'tester@example.com'])
+        );
+
+        self::title(__('Nothing is stored as an entry', 'lonsda-light-form'));
+        self::assert(sprintf('%d before, %d after', $before, Entries::count()), $before === Entries::count());
+
+        self::title(__('An invalid address is refused', 'lonsda-light-form'));
+        $r = TestMail::send($post_id, TestMail::NOTIFICATION, 'not-an-address');
+        self::assert($r['message'], false === $r['sent']);
+
+        self::title(__('An auto reply that is switched off says so', 'lonsda-light-form'));
+        $r = TestMail::send($post_id, TestMail::AUTO_REPLY, 'tester@example.com');
+        self::assert($r['message'], false === $r['sent'] && false !== strpos($r['message'], 'Auto reply tab'));
+
+        remove_filter(Notifications::FILTER_MAIL, $spy, 10);
 
         self::title(__('No mail left this run', 'lonsda-light-form'));
         self::assert('every send was cancelled', true);

@@ -15,7 +15,8 @@ $llf_editing     = isset($_GET['llf_locale'])
 $llf_form        = isset($_GET['llf_form']) ? (int) $_GET['llf_form'] : 0;
 $llf_strings     = Translations::strings($llf_form);
 $llf_all_strings = Translations::strings();
-$llf_existing    = Translations::existing($llf_editing);
+$llf_existing     = Translations::existing($llf_editing);
+$llf_group_labels = Translations::groups();
 $llf_installed   = Translations::installed();
 
 $llf_all_forms = [];
@@ -89,57 +90,44 @@ $llf_base      = admin_url('admin.php?page=' . LLF_SLUG . '-translations');
             <input type="hidden" name="llf_locale" value="<?php echo esc_attr($llf_editing); ?>">
             <input type="hidden" name="llf_form" value="<?php echo esc_attr((string) $llf_form); ?>">
 
-            <table class="wp-list-table widefat striped" style="max-width:1100px;">
-                <thead>
-                    <tr>
-                        <th style="width:26%;"><?php esc_html_e('Original', 'lonsda-light-form'); ?></th>
-                        <th style="width:38%;">
-                            <?php
-                            printf(
-                                /* translators: %s: locale being edited */
-                                esc_html__('Translation (%s)', 'lonsda-light-form'),
-                                esc_html($llf_editing)
-                            );
-                            ?>
-                        </th>
-                        <th style="width:36%;"><?php esc_html_e('Key and where it is used', 'lonsda-light-form'); ?></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php $llf_group = null; ?>
-                    <?php foreach ($llf_strings as $llf_key => $llf_entry) : ?>
-                        <?php
-                        // A heading whenever the group changes. strings() sorts
-                        // by group first, so each one is emitted exactly once.
-                        $llf_this = $llf_entry['group'] ?? Translations::GROUP_FIELDS;
+            <?php foreach (Translations::grouped($llf_form) as $llf_group => $llf_rows) : ?>
+                <h3 style="margin-top:26px;"><?php echo esc_html($llf_group_labels[$llf_group] ?? $llf_group); ?></h3>
 
-                        if ($llf_this !== $llf_group) :
-                            $llf_group  = $llf_this;
-                            $llf_labels = Translations::groups();
-                            ?>
-                            <tr class="llf-group">
-                                <th colspan="3">
-                                    <?php echo esc_html($llf_labels[$llf_group] ?? $llf_group); ?>
-                                </th>
-                            </tr>
-                        <?php endif; ?>
-
+                <table class="wp-list-table widefat striped" style="max-width:1100px;">
+                    <thead>
                         <tr>
-                            <td><strong><?php echo esc_html($llf_entry['text']); ?></strong></td>
-                            <td>
-                                <input type="text" class="large-text"
-                                       name="llf_tr[<?php echo esc_attr($llf_key); ?>]"
-                                       value="<?php echo esc_attr($llf_existing[$llf_key] ?? ''); ?>"
-                                       placeholder="<?php echo esc_attr($llf_entry['text']); ?>">
-                            </td>
-                            <td>
-                                <code><?php echo esc_html($llf_key); ?></code><br>
-                                <span class="description"><?php echo esc_html(implode(', ', $llf_entry['forms'])); ?></span>
-                            </td>
+                            <th style="width:26%;"><?php esc_html_e('Original', 'lonsda-light-form'); ?></th>
+                            <th style="width:38%;">
+                                <?php
+                                printf(
+                                    /* translators: %s: locale being edited */
+                                    esc_html__('Translation (%s)', 'lonsda-light-form'),
+                                    esc_html($llf_editing)
+                                );
+                                ?>
+                            </th>
+                            <th style="width:36%;"><?php esc_html_e('Key and where it is used', 'lonsda-light-form'); ?></th>
                         </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($llf_rows as $llf_key => $llf_entry) : ?>
+                            <tr>
+                                <td><strong><?php echo esc_html($llf_entry['text']); ?></strong></td>
+                                <td>
+                                    <input type="text" class="large-text"
+                                           name="llf_tr[<?php echo esc_attr($llf_key); ?>]"
+                                           value="<?php echo esc_attr($llf_existing[$llf_key] ?? ''); ?>"
+                                           placeholder="<?php echo esc_attr($llf_entry['text']); ?>">
+                                </td>
+                                <td>
+                                    <code><?php echo esc_html($llf_key); ?></code><br>
+                                    <span class="description"><?php echo esc_html(implode(', ', $llf_entry['forms'])); ?></span>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            <?php endforeach; ?>
 
             <p class="description" style="max-width:840px;">
                 <?php esc_html_e('An empty box means untranslated — the original is shown instead. Clearing a box that had a translation removes it. Translations for forms not listed here are kept.', 'lonsda-light-form'); ?>
@@ -249,17 +237,3 @@ $llf_base      = admin_url('admin.php?page=' . LLF_SLUG . '-translations');
         </table>
     <?php endif; ?>
 </div>
-
-<style>
-    /* A heading row rather than separate tables: one form still posts the lot,
-       and the striping stays continuous down the column. */
-    .llf-group th {
-        padding-top: 22px;
-        font-size: 13px;
-        text-transform: uppercase;
-        letter-spacing: .04em;
-        color: #50575e;
-        border-bottom: 1px solid #dcdcde;
-    }
-    .llf-group:first-child th { padding-top: 6px; }
-</style>

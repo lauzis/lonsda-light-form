@@ -816,32 +816,35 @@ class Tests
             return $mail;
         };
 
-        add_filter(Notifications::FILTER_MAIL, $spy, 10);
+        // Priority 500: after TestMail redirects the recipient at 99, before
+        // run() cancels the send at 999. At 10 this would capture the message
+        // as the sender built it, not as the test actually addressed it.
+        add_filter(Notifications::FILTER_MAIL, $spy, 500);
 
         self::title(__('A form with no recipient says what to change', 'lonsda-light-form'));
+        // A new form is prefilled with the site address, so having none is a
+        // choice someone makes — which is the state being tested here.
+        carbon_set_post_meta($post_id, 'llf_notify_to', '');
+        Forms::syncToTable($post_id, get_post($post_id));
         $r = TestMail::send($post_id, TestMail::NOTIFICATION, 'tester@example.com');
         self::assert($r['message'], false === $r['sent'] && false !== strpos($r['message'], 'Notifications tab'));
 
         carbon_set_post_meta($post_id, 'llf_notify_to', 'owner@example.com');
         Forms::syncToTable($post_id, get_post($post_id));
 
+        $sent   = [];
         $before = Entries::count();
         $r      = TestMail::send($post_id, TestMail::NOTIFICATION, 'tester@example.com');
+        $mail   = $sent[0] ?? [];
+        $to     = is_array($mail['to'] ?? null) ? implode(',', $mail['to']) : (string) ($mail['to'] ?? '');
 
         self::title(__('With one, it sends to the address given', 'lonsda-light-form'));
-        $mail = $sent[0] ?? [];
-        self::assert(
-            is_array($mail['to'] ?? null) ? implode(',', $mail['to']) : (string) ($mail['to'] ?? '?'),
-            $r['sent'] && 'tester@example.com' === ($mail['to'] ?? null)
-        );
+        self::assert($to, $r['sent'] && 'tester@example.com' === $to);
 
         self::title(__('Not to the form\'s real recipient', 'lonsda-light-form'));
         // The whole point: testing a form must not mail whoever normally hears
         // about it.
-        self::assert(
-            'owner@example.com was not written to',
-            false === strpos(is_array($mail['to'] ?? null) ? implode(',', $mail['to']) : (string) ($mail['to'] ?? ''), 'owner@')
-        );
+        self::assert('owner@example.com was not written to', false === strpos($to, 'owner@'));
 
         self::title(__('The subject is marked as a test', 'lonsda-light-form'));
         self::assert((string) ($mail['subject'] ?? ''), 0 === strpos((string) ($mail['subject'] ?? ''), '[TEST]'));
@@ -863,7 +866,7 @@ class Tests
         $r = TestMail::send($post_id, TestMail::AUTO_REPLY, 'tester@example.com');
         self::assert($r['message'], false === $r['sent'] && false !== strpos($r['message'], 'Auto reply tab'));
 
-        remove_filter(Notifications::FILTER_MAIL, $spy, 10);
+        remove_filter(Notifications::FILTER_MAIL, $spy, 500);
 
         self::title(__('No mail left this run', 'lonsda-light-form'));
         self::assert('every send was cancelled', true);

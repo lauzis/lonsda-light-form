@@ -976,36 +976,41 @@ class Tests
             '' !== $textId && 0 === strpos($expected[0], $textId . '__')
         );
 
-        self::title(__('Strings are grouped, and every group is a known one', 'lonsda-light-form'));
-        $groups = [];
-
-        foreach (Translations::strings($form_id) as $entry) {
-            $groups[] = $entry['group'] ?? '(none)';
-        }
-
-        $unknown = array_diff(array_unique($groups), array_keys(Translations::groups()));
+        self::title(__('Strings come back split into sections', 'lonsda-light-form'));
+        $sections = Translations::grouped($form_id);
+        $unknown  = array_diff(array_keys($sections), array_keys(Translations::groups()));
         self::assert(
-            implode(', ', array_unique($groups)),
-            [] === $unknown && count(array_unique($groups)) > 1
+            implode(', ', array_keys($sections)),
+            [] === $unknown && count($sections) > 1
         );
 
-        self::title(__('And they arrive already sorted by group', 'lonsda-light-form'));
-        // The editor emits a heading whenever the group changes, so a group
-        // appearing twice would print its heading twice.
-        $seen  = [];
-        $tidy  = true;
-        $last  = null;
+        self::title(__('Every string lands in exactly one section', 'lonsda-light-form'));
+        // The editor renders a table per section, so a string in none would
+        // silently vanish and one in two would be editable twice.
+        $flat = [];
 
-        foreach ($groups as $group) {
-            if ($group !== $last && in_array($group, $seen, true)) {
-                $tidy = false;
-            }
-
-            $seen[] = $group;
-            $last   = $group;
+        foreach ($sections as $rows) {
+            $flat = array_merge($flat, array_keys($rows));
         }
 
-        self::assert('no group is interrupted and resumed', $tidy, $groups);
+        self::assert(
+            count($flat) . ' placed, ' . count(Translations::strings($form_id)) . ' collected',
+            count($flat) === count(Translations::strings($form_id))
+                && count($flat) === count(array_unique($flat))
+        );
+
+        self::title(__('The submit button sits with the fields', 'lonsda-light-form'));
+        // One string does not warrant a section of its own.
+        self::assert(
+            'no section of its own',
+            isset($sections[Translations::GROUP_FIELDS][FormBuilder::generatedSubmitKey()])
+        );
+
+        self::title(__('An empty section is not offered at all', 'lonsda-light-form'));
+        self::assert(
+            'every section returned has rows in it',
+            [] === array_filter($sections, static fn($rows) => [] === $rows)
+        );
 
         self::title(__('The submit button shares one key across every form', 'lonsda-light-form'));
         // Not per form: "Send" is "Send" everywhere, and a key per form would

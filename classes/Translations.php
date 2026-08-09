@@ -27,7 +27,6 @@ class Translations
 
     /** What a string is part of, so the editor can group rather than list. */
     public const GROUP_FIELDS       = 'fields';
-    public const GROUP_BUTTON       = 'button';
     public const GROUP_CONFIRMATION = 'confirmation';
     public const GROUP_NOTIFICATION = 'notification';
     public const GROUP_AUTO_REPLY   = 'auto_reply';
@@ -43,12 +42,46 @@ class Translations
     public static function groups(): array
     {
         return [
+            // The submit button sits with the fields: it is one string, and a
+            // heading of its own over a single row is more furniture than help.
             self::GROUP_FIELDS       => __('Form fields', 'lonsda-light-form'),
-            self::GROUP_BUTTON       => __('Submit button', 'lonsda-light-form'),
             self::GROUP_CONFIRMATION => __('Confirmation message', 'lonsda-light-form'),
             self::GROUP_NOTIFICATION => __('Notification email', 'lonsda-light-form'),
             self::GROUP_AUTO_REPLY   => __('Auto reply email', 'lonsda-light-form'),
         ];
+    }
+
+    /**
+     * The same strings, split by group and in display order.
+     *
+     * Returned already grouped because the editor renders a table per section:
+     * asking it to detect where one group ends and the next begins would put
+     * the ordering rule in the template, where a later change to sorting would
+     * silently break the headings.
+     *
+     * @param int $form_id
+     * @return array<string, array<string, array>> Group => key => entry.
+     */
+    public static function grouped(int $form_id = 0): array
+    {
+        $grouped = [];
+
+        foreach (array_keys(self::groups()) as $group) {
+            $grouped[$group] = [];
+        }
+
+        foreach (self::strings($form_id) as $key => $entry) {
+            $group = $entry['group'] ?? self::GROUP_FIELDS;
+
+            if (!isset($grouped[$group])) {
+                $grouped[$group] = [];
+            }
+
+            $grouped[$group][$key] = $entry;
+        }
+
+        // A form with no auto reply, say, should not get an empty table.
+        return array_filter($grouped);
     }
 
     /** Which group a form-level key belongs to. */
@@ -298,7 +331,7 @@ class Translations
                 (string) ($settings['submit_key'] ?? ''),
                 (string) ($settings['submit_label'] ?? '') ?: FormBuilder::defaultSubmitLabel(),
                 $title,
-                self::GROUP_BUTTON
+                self::GROUP_FIELDS
             );
 
             // The form's own wording — confirmation, notification, auto reply.

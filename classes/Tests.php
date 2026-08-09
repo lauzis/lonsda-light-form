@@ -901,6 +901,37 @@ class Tests
             '' !== $textId && 0 === strpos($expected[0], $textId . '__')
         );
 
+        self::title(__('Strings are grouped, and every group is a known one', 'lonsda-light-form'));
+        $groups = [];
+
+        foreach (Translations::strings($form_id) as $entry) {
+            $groups[] = $entry['group'] ?? '(none)';
+        }
+
+        $unknown = array_diff(array_unique($groups), array_keys(Translations::groups()));
+        self::assert(
+            implode(', ', array_unique($groups)),
+            [] === $unknown && count(array_unique($groups)) > 1
+        );
+
+        self::title(__('And they arrive already sorted by group', 'lonsda-light-form'));
+        // The editor emits a heading whenever the group changes, so a group
+        // appearing twice would print its heading twice.
+        $seen  = [];
+        $tidy  = true;
+        $last  = null;
+
+        foreach ($groups as $group) {
+            if ($group !== $last && in_array($group, $seen, true)) {
+                $tidy = false;
+            }
+
+            $seen[] = $group;
+            $last   = $group;
+        }
+
+        self::assert('no group is interrupted and resumed', $tidy, $groups);
+
         self::title(__('The submit button shares one key across every form', 'lonsda-light-form'));
         // Not per form: "Send" is "Send" everywhere, and a key per form would
         // mean translating the same word once for each of them.

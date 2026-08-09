@@ -322,6 +322,9 @@ strings are rows in a table, so nothing can discover them — **Lonsda Forms →
 Translations** works from the stored forms instead.
 
 Translate in the browser: pick a language and a form, fill in the boxes, save.
+The list is grouped — form fields, submit button, confirmation message,
+notification email, auto reply email — because a flat list of a dozen keys gives
+no sense of which of them a visitor actually reads.
 Both a `.mo` and a `.po` are written, so a translation started here can be
 carried on in Poedit or handed to someone else, and one done elsewhere can be
 uploaded back. A `.po` is compiled to `.mo` on the way in, so either will do.
@@ -386,6 +389,29 @@ one nothing wears.
 
 Rejected inputs also carry `aria-invalid="true"` and an `aria-describedby`
 pointing at their message, so the reason is announced and not merely coloured.
+
+## Testing a form's emails
+
+The form editor's **Testing** tab sends the notification or the auto reply to an
+address of your choosing — your own by default — with made-up answers filled in.
+
+It goes through the real senders rather than reproducing them, so what arrives
+is what a submission produces: the same templates, placeholders, translations
+and `Reply-To`, and whatever a filter does to it on the way out. A test that
+built its own message would only prove the test works.
+
+- The recipient is replaced at the last moment, through the same filter a site
+  would use, so everything before that point is untouched.
+- The subject is prefixed `[TEST]`, so it cannot be mistaken for a real enquiry.
+- Nothing is stored as an entry, and the submitted hook is not fired — a
+  listener a theme has added should not run for a message nobody sent.
+- IP and user agent are blanked. Recording your own address against a made-up
+  submission would mislead in a message that may well be forwarded.
+- A button whose message is not configured is disabled, and says what would
+  switch it on. When a send produces nothing, the reason is reported rather
+  than "nothing happened".
+
+Both read what was **last saved**, so save before testing a change.
 
 ## Auto reply
 

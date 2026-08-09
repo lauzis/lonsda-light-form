@@ -205,6 +205,13 @@ class FormBuilder
                 ]),
         ];
 
+        $testingTab = [
+            Field::make('html', 'llf_test_ui')
+                // The callable, not its result: it lists what the form is set
+                // to send, which has to be current when the tab is drawn.
+                ->set_html([Admin::class, 'testPanel']),
+        ];
+
         Container::make('post_meta', __('Form Structure', 'lonsda-light-form'))
             ->where('post_type', '=', Forms::POST_TYPE)
             ->add_tab(__('Fields', 'lonsda-light-form'), $fieldsTab)
@@ -212,7 +219,8 @@ class FormBuilder
             ->add_tab(__('Confirmation', 'lonsda-light-form'), $confirmationTab)
             ->add_tab(__('Notifications', 'lonsda-light-form'), $notificationsTab)
             ->add_tab(__('Auto reply', 'lonsda-light-form'), $autoReplyTab)
-            ->add_tab(__('Protection', 'lonsda-light-form'), $protectionTab);
+            ->add_tab(__('Protection', 'lonsda-light-form'), $protectionTab)
+            ->add_tab(__('Testing', 'lonsda-light-form'), $testingTab);
     }
 
     /** A trimmed string from post meta, or '' when Carbon Fields is absent. */

@@ -25,6 +25,46 @@ class Translations
     /** Text domain for form content, kept apart from the plugin's own. */
     public const DOMAIN = 'lonsda-forms';
 
+    /** What a string is part of, so the editor can group rather than list. */
+    public const GROUP_FIELDS       = 'fields';
+    public const GROUP_BUTTON       = 'button';
+    public const GROUP_CONFIRMATION = 'confirmation';
+    public const GROUP_NOTIFICATION = 'notification';
+    public const GROUP_AUTO_REPLY   = 'auto_reply';
+
+    /**
+     * Group => heading, in the order the editor shows them.
+     *
+     * Roughly the order somebody meets them: the fields they filled in, the
+     * button they pressed, what they were told, then the two emails.
+     *
+     * @return array<string, string>
+     */
+    public static function groups(): array
+    {
+        return [
+            self::GROUP_FIELDS       => __('Form fields', 'lonsda-light-form'),
+            self::GROUP_BUTTON       => __('Submit button', 'lonsda-light-form'),
+            self::GROUP_CONFIRMATION => __('Confirmation message', 'lonsda-light-form'),
+            self::GROUP_NOTIFICATION => __('Notification email', 'lonsda-light-form'),
+            self::GROUP_AUTO_REPLY   => __('Auto reply email', 'lonsda-light-form'),
+        ];
+    }
+
+    /** Which group a form-level key belongs to. */
+    private static function groupForKey(string $keyName): string
+    {
+        if (0 === strpos($keyName, 'auto_reply')) {
+            return self::GROUP_AUTO_REPLY;
+        }
+
+        if (0 === strpos($keyName, 'notify')) {
+            return self::GROUP_NOTIFICATION;
+        }
+
+        return self::GROUP_CONFIRMATION;
+    }
+
     /** Largest upload accepted. A translation file for one site is tiny. */
     public const MAX_UPLOAD = 2097152;
 
@@ -257,18 +297,34 @@ class Translations
                 $strings,
                 (string) ($settings['submit_key'] ?? ''),
                 (string) ($settings['submit_label'] ?? '') ?: FormBuilder::defaultSubmitLabel(),
-                $title
+                $title,
+                self::GROUP_BUTTON
             );
 
             // The form's own wording — confirmation, notification, auto reply.
             // Keyed by the form's text id rather than shared, because two forms
             // saying "Thank you" may well want to say it differently.
-            foreach (Strings::formStrings($settings) as $key => $text) {
-                self::collect($strings, $key, $text, $title);
+            foreach (Strings::formStrings($settings) as $keyName => $pair) {
+                self::collect($strings, $pair['key'], $pair['text'], $title, self::groupForKey($keyName));
             }
         }
 
         ksort($strings);
+
+        // Stable within a group: the editor renders in this order and a heading
+        // is emitted whenever the group changes, so grouping has to be the
+        // outer sort or the headings would repeat.
+        $order = array_keys(self::groups());
+
+        uasort(
+            $strings,
+            static function ($a, $b) use ($order) {
+                $ga = array_search($a['group'] ?? self::GROUP_FIELDS, $order, true);
+                $gb = array_search($b['group'] ?? self::GROUP_FIELDS, $order, true);
+
+                return $ga === $gb ? 0 : $ga <=> $gb;
+            }
+        );
 
         return $strings;
     }
@@ -276,14 +332,14 @@ class Translations
     /**
      * @param array<string, array{text: string, forms: string[]}> $strings
      */
-    private static function collect(array &$strings, string $key, string $text, string $form): void
+    private static function collect(array &$strings, string $key, string $text, string $form, string $group = self::GROUP_FIELDS): void
     {
         if ('' === $key || '' === $text) {
             return;
         }
 
         if (!isset($strings[$key])) {
-            $strings[$key] = ['text' => $text, 'forms' => []];
+            $strings[$key] = ['text' => $text, 'forms' => [], 'group' => $group];
         }
 
         if (!in_array($form, $strings[$key]['forms'], true)) {

@@ -43,6 +43,7 @@ class Tests
             'entries'       => __('Stored entries', 'lonsda-light-form'),
             'notifications' => __('Notification emails', 'lonsda-light-form'),
             'auto-reply'    => __('Auto reply', 'lonsda-light-form'),
+            'test-mail'     => __('Testing tab', 'lonsda-light-form'),
             'translations'  => __('Translations', 'lonsda-light-form'),
             'cleanup'       => __('Clean up leftovers from earlier runs', 'lonsda-light-form'),
         ];
@@ -76,6 +77,7 @@ class Tests
                 'entries'       => self::entriesScenario(),
                 'notifications' => self::notificationsScenario(),
                 'auto-reply'    => self::autoReplyScenario(),
+                'test-mail'     => self::testMailScenario(),
                 'translations'  => self::translationsScenario(),
                 'cleanup'       => self::cleanupScenario(),
                 default         => self::result(__('Unknown scenario.', 'lonsda-light-form'), false),
@@ -797,6 +799,79 @@ class Tests
         self::assert('every send was cancelled', true);
     }
 
+    private static function testMailScenario(): void
+    {
+        self::heading(__('Testing tab', 'lonsda-light-form'));
+
+        $post_id = self::makeForm('TestMail', [
+            ['label' => 'Email', 'name' => 'email', 'type' => 'text', 'validation' => 'email', 'required' => true],
+            ['label' => 'Message', 'name' => 'message', 'type' => 'textarea'],
+        ]);
+        $form_id = Forms::tableIdForPost($post_id);
+
+        $sent = [];
+        $spy  = static function ($mail) use (&$sent) {
+            $sent[] = $mail;
+
+            return $mail;
+        };
+
+        // Priority 500: after TestMail redirects the recipient at 99, before
+        // run() cancels the send at 999. At 10 this would capture the message
+        // as the sender built it, not as the test actually addressed it.
+        add_filter(Notifications::FILTER_MAIL, $spy, 500);
+
+        self::title(__('A form with no recipient says what to change', 'lonsda-light-form'));
+        // A new form is prefilled with the site address, so having none is a
+        // choice someone makes — which is the state being tested here.
+        carbon_set_post_meta($post_id, 'llf_notify_to', '');
+        Forms::syncToTable($post_id, get_post($post_id));
+        $r = TestMail::send($post_id, TestMail::NOTIFICATION, 'tester@example.com');
+        self::assert($r['message'], false === $r['sent'] && false !== strpos($r['message'], 'Notifications tab'));
+
+        carbon_set_post_meta($post_id, 'llf_notify_to', 'owner@example.com');
+        Forms::syncToTable($post_id, get_post($post_id));
+
+        $sent   = [];
+        $before = Entries::count();
+        $r      = TestMail::send($post_id, TestMail::NOTIFICATION, 'tester@example.com');
+        $mail   = $sent[0] ?? [];
+        $to     = is_array($mail['to'] ?? null) ? implode(',', $mail['to']) : (string) ($mail['to'] ?? '');
+
+        self::title(__('With one, it sends to the address given', 'lonsda-light-form'));
+        self::assert($to, $r['sent'] && 'tester@example.com' === $to);
+
+        self::title(__('Not to the form\'s real recipient', 'lonsda-light-form'));
+        // The whole point: testing a form must not mail whoever normally hears
+        // about it.
+        self::assert('owner@example.com was not written to', false === strpos($to, 'owner@'));
+
+        self::title(__('The subject is marked as a test', 'lonsda-light-form'));
+        self::assert((string) ($mail['subject'] ?? ''), 0 === strpos((string) ($mail['subject'] ?? ''), '[TEST]'));
+
+        self::title(__('The answers are filled in, not left blank', 'lonsda-light-form'));
+        self::assert(
+            'sample answers present',
+            self::hasAll((string) ($mail['message'] ?? ''), ['<strong>Email:</strong>', '<strong>Message:</strong>', 'tester@example.com'])
+        );
+
+        self::title(__('Nothing is stored as an entry', 'lonsda-light-form'));
+        self::assert(sprintf('%d before, %d after', $before, Entries::count()), $before === Entries::count());
+
+        self::title(__('An invalid address is refused', 'lonsda-light-form'));
+        $r = TestMail::send($post_id, TestMail::NOTIFICATION, 'not-an-address');
+        self::assert($r['message'], false === $r['sent']);
+
+        self::title(__('An auto reply that is switched off says so', 'lonsda-light-form'));
+        $r = TestMail::send($post_id, TestMail::AUTO_REPLY, 'tester@example.com');
+        self::assert($r['message'], false === $r['sent'] && false !== strpos($r['message'], 'Auto reply tab'));
+
+        remove_filter(Notifications::FILTER_MAIL, $spy, 500);
+
+        self::title(__('No mail left this run', 'lonsda-light-form'));
+        self::assert('every send was cancelled', true);
+    }
+
     private static function translationsScenario(): void
     {
         self::heading(__('Translations', 'lonsda-light-form'));
@@ -900,6 +975,37 @@ class Tests
             $textId,
             '' !== $textId && 0 === strpos($expected[0], $textId . '__')
         );
+
+        self::title(__('Strings are grouped, and every group is a known one', 'lonsda-light-form'));
+        $groups = [];
+
+        foreach (Translations::strings($form_id) as $entry) {
+            $groups[] = $entry['group'] ?? '(none)';
+        }
+
+        $unknown = array_diff(array_unique($groups), array_keys(Translations::groups()));
+        self::assert(
+            implode(', ', array_unique($groups)),
+            [] === $unknown && count(array_unique($groups)) > 1
+        );
+
+        self::title(__('And they arrive already sorted by group', 'lonsda-light-form'));
+        // The editor emits a heading whenever the group changes, so a group
+        // appearing twice would print its heading twice.
+        $seen  = [];
+        $tidy  = true;
+        $last  = null;
+
+        foreach ($groups as $group) {
+            if ($group !== $last && in_array($group, $seen, true)) {
+                $tidy = false;
+            }
+
+            $seen[] = $group;
+            $last   = $group;
+        }
+
+        self::assert('no group is interrupted and resumed', $tidy, $groups);
 
         self::title(__('The submit button shares one key across every form', 'lonsda-light-form'));
         // Not per form: "Send" is "Send" everywhere, and a key per form would

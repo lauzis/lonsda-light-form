@@ -6,6 +6,45 @@ Built on [lauzis/wp-plugin-packages](https://github.com/lauzis/wp-plugin-package
 so its settings page, logging, notices, toasts and migrations are the same
 components the other plugins in this account use.
 
+## Why it exists
+
+This site ran on Gravity Forms until its licence lapsed. Renewing buys support
+and updates for a great deal of software — conditional logic, multi-page forms,
+payment gateways, dozens of integrations — and reviewing what was actually in
+use turned up four contact forms with text fields, a checkbox and an email
+notification.
+
+So this replaces that, and only that. It is not a Gravity Forms clone and would
+be a poor one: what it is instead is small enough to read in an afternoon, with
+no licence to renew and no upsell.
+
+### Against Gravity Forms
+
+| | Lonsda | Gravity Forms |
+| --- | --- | --- |
+| Field types | text, textarea, checkbox | 30-odd, including file upload, date, address, payment |
+| Validation | required, email, regex, max length | the above plus per-field rules and custom validators |
+| Conditional logic | — | fields, pages and notifications |
+| Multi-page forms | — | yes |
+| Entries | stored, listed, filterable, CSV | the above plus notes, editing, bulk actions, partial entries |
+| Notifications | one per form, per-form recipients | many per form, routed by conditional logic |
+| Auto reply | yes | yes |
+| Spam | honeypot, minimum completion time, reCAPTCHA v2 | the above plus Akismet and reCAPTCHA v3 |
+| Translations | keys generated per field, `.po`/`.mo` or WPML | WPML/Polylang integration |
+| Import/export | JSON | JSON |
+| Integrations | a hook | Mailchimp, Stripe, HubSpot, Zapier and many more |
+| Licence | none | annual |
+
+The right-hand column is why Gravity Forms costs what it does. If you need any of
+it, buy it — this is not a substitute. The point of the table is the left-hand
+column: on this site, that was the whole requirement.
+
+What replaced the integrations is one action. A submission is handed to
+`lonsda_form_submitted` and the theme decides what it means — here, adding the
+address to the right Mailchimp-style audience for the language it was submitted
+in. That is about thirty lines, and it is exactly as much integration as the
+site needed.
+
 ## What it does
 
 - **Form builder** — fields with labels, placeholders, defaults and validation, edited in a tabbed screen and collapsed to a readable list.
@@ -322,6 +361,9 @@ strings are rows in a table, so nothing can discover them — **Lonsda Forms →
 Translations** works from the stored forms instead.
 
 Translate in the browser: pick a language and a form, fill in the boxes, save.
+The list is grouped — form fields, submit button, confirmation message,
+notification email, auto reply email — because a flat list of a dozen keys gives
+no sense of which of them a visitor actually reads.
 Both a `.mo` and a `.po` are written, so a translation started here can be
 carried on in Poedit or handed to someone else, and one done elsewhere can be
 uploaded back. A `.po` is compiled to `.mo` on the way in, so either will do.
@@ -386,6 +428,29 @@ one nothing wears.
 
 Rejected inputs also carry `aria-invalid="true"` and an `aria-describedby`
 pointing at their message, so the reason is announced and not merely coloured.
+
+## Testing a form's emails
+
+The form editor's **Testing** tab sends the notification or the auto reply to an
+address of your choosing — your own by default — with made-up answers filled in.
+
+It goes through the real senders rather than reproducing them, so what arrives
+is what a submission produces: the same templates, placeholders, translations
+and `Reply-To`, and whatever a filter does to it on the way out. A test that
+built its own message would only prove the test works.
+
+- The recipient is replaced at the last moment, through the same filter a site
+  would use, so everything before that point is untouched.
+- The subject is prefixed `[TEST]`, so it cannot be mistaken for a real enquiry.
+- Nothing is stored as an entry, and the submitted hook is not fired — a
+  listener a theme has added should not run for a message nobody sent.
+- IP and user agent are blanked. Recording your own address against a made-up
+  submission would mislead in a message that may well be forwarded.
+- A button whose message is not configured is disabled, and says what would
+  switch it on. When a send produces nothing, the reason is reported rather
+  than "nothing happened".
+
+Both read what was **last saved**, so save before testing a change.
 
 ## Auto reply
 

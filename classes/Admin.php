@@ -521,6 +521,115 @@ class Admin
         wp_send_json(['created' => $created, 'message' => $message]);
     }
 
+    /**
+     * The Testing tab on the form editor.
+     *
+     * Markup only. It sits inside the editor's own form, which cannot contain
+     * another, so the buttons post on their own from an enqueued script.
+     */
+    public static function testPanel(): string
+    {
+        $post_id = (int) get_the_ID();
+        $form    = \LonsdaLightForm\Forms::get(\LonsdaLightForm\Forms::tableIdForPost($post_id));
+        $s       = $form['settings'] ?? [];
+        $user    = wp_get_current_user();
+
+        ob_start();
+        ?>
+        <div class="llf-test-mail" data-post="<?php echo esc_attr((string) $post_id); ?>">
+            <?php if (!$form) : ?>
+                <p class="description"><?php esc_html_e('Publish the form once and this tab can send it to you.', 'lonsda-light-form'); ?></p>
+            <?php else : ?>
+                <p class="description" style="max-width:760px;">
+                    <?php esc_html_e('Sends the real message — the same templates, placeholders and translations a submission produces — with made-up answers, to the address below. Nothing is stored as an entry, and the subject is marked so it cannot be mistaken for a real enquiry.', 'lonsda-light-form'); ?>
+                </p>
+
+                <p>
+                    <label for="llf-test-to"><strong><?php esc_html_e('Send to', 'lonsda-light-form'); ?></strong></label><br>
+                    <input type="email" id="llf-test-to" class="regular-text"
+                           value="<?php echo esc_attr($user ? $user->user_email : ''); ?>">
+                </p>
+
+                <p>
+                    <button type="button" class="button" id="llf-test-notification"
+                        <?php disabled('' === trim((string) ($s['notify_to'] ?? ''))); ?>>
+                        <?php esc_html_e('Send test notification', 'lonsda-light-form'); ?>
+                    </button>
+
+                    <button type="button" class="button" id="llf-test-auto-reply"
+                        <?php disabled(empty($s['auto_reply'])); ?>>
+                        <?php esc_html_e('Send test auto reply', 'lonsda-light-form'); ?>
+                    </button>
+                </p>
+
+                <?php
+                // A disabled button with no explanation is a puzzle, so each one
+                // says what would switch it on.
+                if ('' === trim((string) ($s['notify_to'] ?? ''))) :
+                    ?>
+                    <p class="description"><?php esc_html_e('The notification has no recipient yet — set one on the Notifications tab.', 'lonsda-light-form'); ?></p>
+                <?php endif; ?>
+
+                <?php if (empty($s['auto_reply'])) : ?>
+                    <p class="description"><?php esc_html_e('The auto reply is switched off — turn it on on the Auto reply tab.', 'lonsda-light-form'); ?></p>
+                <?php endif; ?>
+
+                <p class="description">
+                    <?php esc_html_e('Both read what was last saved, so save the form before testing a change.', 'lonsda-light-form'); ?>
+                </p>
+
+                <p id="llf-test-status" aria-live="polite"></p>
+            <?php endif; ?>
+        </div>
+        <?php
+
+        return (string) ob_get_clean();
+    }
+
+    /** Sends a test message and answers as JSON. */
+    public static function handleTestMail(): void
+    {
+        if (!current_user_can('manage_options')) {
+            wp_send_json(['sent' => false, 'message' => __('You are not allowed to do that.', 'lonsda-light-form')], 403);
+        }
+
+        check_admin_referer('llf-test-mail');
+
+        $result = \LonsdaLightForm\TestMail::send(
+            isset($_POST['post_id']) ? (int) $_POST['post_id'] : 0,
+            isset($_POST['which']) ? sanitize_key(wp_unslash($_POST['which'])) : '',
+            isset($_POST['to']) ? sanitize_email(wp_unslash($_POST['to'])) : ''
+        );
+
+        wp_send_json($result);
+    }
+
+    /** Loads the form editor's own script, for the Testing tab. */
+    public static function enqueueFormEditor(): void
+    {
+        if (!function_exists('get_current_screen')) {
+            return;
+        }
+
+        $screen = get_current_screen();
+
+        if (!$screen || \LonsdaLightForm\Forms::POST_TYPE !== $screen->post_type || 'post' !== $screen->base) {
+            return;
+        }
+
+        wp_enqueue_script('llf-form-editor', LLF_URL . 'assets/js/form-editor.js', [], LLF_VERSION, true);
+
+        wp_localize_script('llf-form-editor', 'LLFFormEditor', [
+            'postUrl' => admin_url('admin-post.php'),
+            'nonce'   => wp_create_nonce('llf-test-mail'),
+            'i18n'    => [
+                'sending' => __('Sending…', 'lonsda-light-form'),
+                'failed'  => __('The test could not be completed.', 'lonsda-light-form'),
+                'noEmail' => __('Enter an address to send to.', 'lonsda-light-form'),
+            ],
+        ]);
+    }
+
     /** Renders the entries page. */
     public static function renderEntries(): void
     {

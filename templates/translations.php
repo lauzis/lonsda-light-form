@@ -106,7 +106,24 @@ $llf_base      = admin_url('admin.php?page=' . LLF_SLUG . '-translations');
                     </tr>
                 </thead>
                 <tbody>
+                    <?php $llf_group = null; ?>
                     <?php foreach ($llf_strings as $llf_key => $llf_entry) : ?>
+                        <?php
+                        // A heading whenever the group changes. strings() sorts
+                        // by group first, so each one is emitted exactly once.
+                        $llf_this = $llf_entry['group'] ?? Translations::GROUP_FIELDS;
+
+                        if ($llf_this !== $llf_group) :
+                            $llf_group  = $llf_this;
+                            $llf_labels = Translations::groups();
+                            ?>
+                            <tr class="llf-group">
+                                <th colspan="3">
+                                    <?php echo esc_html($llf_labels[$llf_group] ?? $llf_group); ?>
+                                </th>
+                            </tr>
+                        <?php endif; ?>
+
                         <tr>
                             <td><strong><?php echo esc_html($llf_entry['text']); ?></strong></td>
                             <td>
@@ -232,3 +249,17 @@ $llf_base      = admin_url('admin.php?page=' . LLF_SLUG . '-translations');
         </table>
     <?php endif; ?>
 </div>
+
+<style>
+    /* A heading row rather than separate tables: one form still posts the lot,
+       and the striping stays continuous down the column. */
+    .llf-group th {
+        padding-top: 22px;
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+        color: #50575e;
+        border-bottom: 1px solid #dcdcde;
+    }
+    .llf-group:first-child th { padding-top: 6px; }
+</style>

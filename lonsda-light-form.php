@@ -3,7 +3,7 @@
  * Plugin Name: Lonsda Light Form
  * Plugin URI:  https://github.com/lauzis/lonsda-light-form
  * Description: Lightweight Carbon Fields form builder.
- * Version:     0.18.1
+ * Version:     0.19.0
  * Author:      Aivars Lauzis
  * Text Domain: lonsda-light-form
  * Domain Path: /languages
@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('LLF_VERSION', '0.18.1');
+define('LLF_VERSION', '0.19.0');
 define('LLF_DIR', plugin_dir_path(__FILE__));
 define('LLF_URL', plugin_dir_url(__FILE__));
 define('LLF_SLUG', 'lonsda-light-form');
@@ -128,7 +128,9 @@ add_action('admin_init', ['\LonsdaLightForm\Admin', 'handleEntryActions']);
 add_action('admin_post_llf_export', ['\LonsdaLightForm\Admin', 'handleExport']);
 add_action('admin_post_llf_import', ['\LonsdaLightForm\Admin', 'handleImport']);
 add_action('admin_post_llf_recaptcha_test', ['\LonsdaLightForm\Admin', 'handleRecaptchaTest']);
+add_action('admin_post_llf_test_mail', ['\LonsdaLightForm\Admin', 'handleTestMail']);
 add_action('admin_enqueue_scripts', ['\LonsdaLightForm\Admin', 'enqueueSettings']);
+add_action('admin_enqueue_scripts', ['\LonsdaLightForm\Admin', 'enqueueFormEditor']);
 
 \LonsdaLightForm\Translations::init();
 \LonsdaLightForm\MultilingualNotice::init();
@@ -155,3 +157,20 @@ register_activation_hook(__FILE__, ['\LonsdaLightForm\Migrations', 'activate']);
 add_action('plugins_loaded', static function (): void {
     load_plugin_textdomain('lonsda-light-form', false, dirname(plugin_basename(__FILE__)) . '/languages');
 });
+
+// The plugin's version in the admin footer, beside WordPress's own — the first
+// thing worth knowing about a page misbehaving is which version drew it.
+add_action( 'admin_init', static function () {
+    if ( ! class_exists( '\\Lauzis\\WpPackages\\Admin\\Footer' ) ) {
+        return;
+    }
+
+    \Lauzis\WpPackages\Admin\Footer::show(
+        'lonsda-light-form',
+        array(
+            'name'    => 'Lonsda Light Form',
+            'version' => defined( 'LLF_VERSION' ) ? LLF_VERSION : '',
+        'types'   => array( 'llf_form' ),
+        )
+    );
+} );

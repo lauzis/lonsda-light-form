@@ -78,8 +78,8 @@ class Strings
             (string) ($settings['submit_label'] ?? '') ?: FormBuilder::defaultSubmitLabel()
         );
 
-        foreach (self::formStrings($settings) as $key => $text) {
-            self::registerOne($key, $text);
+        foreach (self::formStrings($settings) as $pair) {
+            self::registerOne($pair['key'], $pair['text']);
         }
     }
 
@@ -89,8 +89,13 @@ class Strings
      * Gathered in one place so the translations page, the registration above
      * and anything else all agree on what a form consists of.
      *
+     * Keyed by the settings name — success_key, notify_message_key and so on —
+     * rather than by the translation key, because the caller grouping these for
+     * display needs to know which of the form's messages each one is, and the
+     * translation key is opaque about that once a text id is prefixed to it.
+     *
      * @param array $settings Stored form definition.
-     * @return array<string, string> Key => original text.
+     * @return array<string, array{key: string, text: string}>
      */
     public static function formStrings(array $settings): array
     {
@@ -115,7 +120,7 @@ class Strings
             }
 
             if ('' !== $key && '' !== $text) {
-                $strings[$key] = $text;
+                $strings[$keyName] = ['key' => $key, 'text' => $text];
             }
         }
 

@@ -107,10 +107,6 @@ class Strings
             'notice_spam'    => 'Your message could not be sent. Please try again.',
             'notice_sent'    => 'Thank you — your message has been sent.',
 
-            // Read by a screen reader rather than seen, but read out loud all
-            // the same, and in whatever language the page is in.
-            'honeypot_label' => 'Leave this field empty',
-
             // A ticked box, written into an email as a word — and what an
             // unanswered optional field is listed as beside it.
             'word_yes'          => 'Yes',

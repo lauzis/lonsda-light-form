@@ -258,7 +258,7 @@ does not opt in to any of it.
 | `form_id` | The form that was submitted. |
 | `post_id` | The post or page it was submitted from, or `null` when there is no post — a form in a footer or widget, say. Null rather than `0`, which would read as a real id. |
 | `language` | Language code of that post — a bare `lv`. What WPML and Polylang natively report, and what groups a submission with others like it. |
-| `locale` | The same language in full, `lv_LV`. Resolved *from the language*, not read off the request, so an admin viewing the entry in English does not change the answer. This is the form the Translations screen names its files in, and the only one that tells `en_US` from `en_GB`. |
+| `locale` | The same language in full, `lv_LV`. Resolved *from the language*, not read off the request, so an admin viewing the entry in English does not change the answer. This is the form the Translations screen names its files in, the only one that tells `en_US` from `en_GB`, and the one the [auto reply is sent in](#which-language-it-is-sent-in). |
 | `time` | Unix timestamp. |
 | `submitted_at` | The same moment as `Y-m-d H:i:s` in UTC, for anything that has to be read by a person. UTC so it does not shift when the site's timezone setting changes. |
 | `ip` | `REMOTE_ADDR`. |
@@ -276,7 +276,8 @@ add_filter( 'lonsda_form_context', function ( $context ) {
 } );
 ```
 
-The same filter adds keys of your own. Note that a submission rejected for a
+The same filter adds keys of your own — and changing `locale` there changes the
+language the auto reply goes out in. Note that a submission rejected for a
 failed nonce or a tripped spam check does not reach either hook at all — it is
 logged and dropped.
 
@@ -485,6 +486,34 @@ is logged.
 Same placeholders as a notification, passed through `wp_kses_post()` on the way
 out, and sent as **both** an HTML part and a plain-text one.
 
+### Which language it is sent in
+
+**The one the form was submitted in.** That language is recorded with the
+submission — the page's, under WPML or Polylang; the site's where neither is
+running — and the reply switches to it before a word of the message is built:
+the wording and its translation, the shipped defaults behind an empty box, the
+`Yes` or `No` a ticked checkbox becomes, and whatever `lonsda_form_auto_reply`
+adds. The language is put back afterwards, in a `finally`, so a filter that
+throws cannot leave the rest of the request speaking Latvian.
+
+On the page itself this changes nothing: the request is already in that
+language. It matters the moment the reply is sent from anywhere else — a queue,
+a retry, WP-Cron, an admin screen resending one — where the request has no
+language worth having and the recorded one is all that still knows who the
+message is being written to. It is also why the language is read back from the
+submission rather than from `determine_locale()`, which answers for whoever is
+running the code rather than for whoever is being written to.
+
+A site that never installed the WordPress translation for that language still
+gets the form's own wording translated. Core will not switch to a locale it has
+no files for; the form strings are in a directory of their own and are loaded
+for the language regardless, so the part a visitor actually reads arrives
+translated either way.
+
+The **notification** is not switched — it goes out in whatever language the
+request is in. It is read by whoever runs the site rather than by the visitor,
+so the submission's language is not obviously the right answer for it.
+
 The text part matters: `wp_mail()` sends a single body, so declaring it HTML and
 stopping there means a client showing plain text — or a mail setup that strips
 the markup — gets the whole message flattened into one unbroken paragraph.
@@ -590,6 +619,8 @@ capability that is not what anyone assumed.
 | Field validation | Required, email, pattern, maximum length, required checkbox, and that the rules hold for a request that never saw the form. |
 | Stored entries | Storage, status, the unread count, filtering, CSV, deletion. |
 | Notification emails | Recipients, placeholders, Reply-To, and that nothing is actually sent. |
+| Auto reply | Off by default, the address it picks, placeholders, the text part, stripped script, and that the submission's own language is the one it is answered in — and is put back afterwards. |
+| Testing tab | The recipient swap, the `TEST` mark, filled-in answers, a refused address, and that a test is not stored as an entry. |
 | Translations | Collection, the POT, saving, merging, clearing, and that no language is offered twice. |
 | Clean up leftovers | Removes anything an interrupted run left behind. |
 
@@ -598,7 +629,8 @@ that would email the administrator — so every send is cancelled for the durati
 of a run, at a priority nothing else uses. A full run makes zero `wp_mail()`
 calls, which is asserted rather than assumed.
 
-The translation scenario writes to the locale `zz_ZZ`, which no site serves.
+The scenarios that need a translation write to the locale `zz_ZZ`, which no site
+serves.
 Using a real one would put test strings in front of visitors, and cleaning up
 afterwards would delete a translation somebody had actually made.
 

@@ -461,6 +461,12 @@ $llf_settings_url    = admin_url('admin.php?page=' . LLF_SLUG . '-settings');
     <p style="max-width:860px;">
         <?php esc_html_e('It takes the same placeholders as a notification and goes out as both an HTML message and a plain-text one, so a mail client that shows text gets the paragraphs and not one unbroken block. Keep it short, and leave out anything the visitor did not tell you — their IP address has no business in a message addressed to them.', 'lonsda-light-form'); ?>
     </p>
+    <p style="max-width:860px;">
+        <?php esc_html_e('It is sent in the language the form was submitted in — the language of the page on a multilingual site — and that is taken from the submission itself rather than from whatever is sending the reply. So a message submitted in Latvian is answered in Latvian even when the reply leaves later or from elsewhere: a retry, a scheduled task, or you resending it from here. Translate the subject and message under Translations and the right one goes out on its own.', 'lonsda-light-form'); ?>
+    </p>
+    <p style="max-width:860px;">
+        <?php esc_html_e('The notification to you is not switched this way. It goes out in whatever language the site was serving, on the grounds that it is read by whoever runs the site rather than by the visitor.', 'lonsda-light-form'); ?>
+    </p>
 
     <h2><?php esc_html_e('Styling a rejected submission', 'lonsda-light-form'); ?></h2>
     <p style="max-width:860px;">

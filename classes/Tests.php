@@ -826,6 +826,42 @@ class Tests
             $translated
         );
 
+        self::title(__('The language recorded with the submission is the one it is answered in', 'lonsda-light-form'));
+        // The same translation, but nothing loads it by hand this time: the
+        // language is only in the submission's metadata, which is where it has
+        // to be read from for a reply sent from anywhere but the page it was
+        // submitted on.
+        $sent    = [];
+        $relabel = static function ($context) {
+            $context['locale']   = self::TEST_LOCALE;
+            $context['language'] = 'zz';
+
+            return $context;
+        };
+
+        add_filter(Submission::FILTER_CONTEXT, $relabel, 10);
+        self::submit($form_id, ['email' => 'visitor@example.com', 'sender_name' => 'Anna']);
+        remove_filter(Submission::FILTER_CONTEXT, $relabel, 10);
+
+        $byContext = $sent[0] ?? [];
+        self::assert(
+            (string) ($byContext['subject'] ?? ''),
+            'Paldies, Anna' === ($byContext['subject'] ?? '')
+                && false !== strpos((string) ($byContext['message'] ?? ''), 'Paldies par ziņu'),
+            $byContext
+        );
+
+        self::title(__('And the language is put back afterwards', 'lonsda-light-form'));
+        // A reply left the site in another language once the mail had gone
+        // would be a far worse bug than the one this fixes.
+        $sent = [];
+        self::submit($form_id, ['email' => 'visitor@example.com', 'sender_name' => 'Anna']);
+        self::assert(
+            (string) ($sent[0]['subject'] ?? ''),
+            'Thanks, Anna' === ($sent[0]['subject'] ?? ''),
+            ['locale' => determine_locale()]
+        );
+
         self::title(__('Without an email field there is nowhere to send it', 'lonsda-light-form'));
         $sent  = [];
         $other = self::makeForm('AutoReply No Address', [

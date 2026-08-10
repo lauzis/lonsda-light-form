@@ -107,11 +107,28 @@ class Translations
         // Late on init: the locale is not settled until translation plugins
         // have had their say about which language this request is in.
         add_action('init', [self::class, 'load'], 20);
+
+        // And again whenever the locale moves. Core unloads every text domain
+        // on a switch and lets them load themselves again from the places it
+        // knows to look — which does not include the directory these live in,
+        // so without this a switched locale leaves the form strings gone
+        // rather than translated. The hook passes the new locale, which is why
+        // load() takes one.
+        add_action('change_locale', [self::class, 'load']);
     }
 
-    public static function load(): void
+    /**
+     * @param string $locale Defaults to the locale the request is in.
+     */
+    public static function load(string $locale = ''): void
     {
-        $locale = determine_locale();
+        // Unloaded rather than loaded over: load_textdomain() merges into what
+        // is already there, so a string translated in the language being left
+        // would otherwise survive into the one being entered. Reloadable, so
+        // this does not stop the domain being loaded again later.
+        unload_textdomain(self::DOMAIN, true);
+
+        $locale = '' !== $locale ? self::sanitizeLocale($locale) : determine_locale();
         $path   = self::path($locale);
 
         if ($locale && is_readable($path)) {

@@ -381,7 +381,7 @@ class Admin
                 'validation' => 'email',
             ],
             'not-an-email',
-            __('Please enter a valid email address.', 'lonsda-light-form'),
+            \LonsdaLightForm\Strings::general('error_email'),
             // Disabled for the same reason: a live input here would be posted
             // along with the settings.
             ['disabled' => 'disabled']
@@ -407,7 +407,7 @@ class Admin
                     </div>
 
                     <div class="llf-notice llf-notice--error">
-                        <?php esc_html_e('Please check the highlighted fields.', 'lonsda-light-form'); ?>
+                        <?php echo esc_html(\LonsdaLightForm\Strings::general('notice_errors')); ?>
                     </div>
 
                     <?php echo $field; // Escaped field by field by the renderer. ?>
@@ -714,35 +714,40 @@ class Admin
     /** @param \WP_Post $post */
     public static function renderPlaceholderBox($post): void
     {
-        $form   = \LonsdaLightForm\Forms::get(\LonsdaLightForm\Forms::tableIdForPost((int) $post->ID));
-        $fields = $form['settings']['fields'] ?? [];
+        $form = \LonsdaLightForm\Forms::get(\LonsdaLightForm\Forms::tableIdForPost((int) $post->ID));
 
-        $fixed = [
-            '{all_fields}'         => __('Every field and its answer, label in bold', 'lonsda-light-form'),
-            '{submission_details}' => __('Page, language, IP and time, omitting any it lacks', 'lonsda-light-form'),
-            '{form_title}'         => __('This form\'s title', 'lonsda-light-form'),
-            '{site_name}'          => __('The site title', 'lonsda-light-form'),
-            '{site_url}'           => __('The site address', 'lonsda-light-form'),
-            '{submitted_at}'       => __('When it was submitted, UTC', 'lonsda-light-form'),
-            '{page_title}'         => __('The page the form was on', 'lonsda-light-form'),
-            '{page_url}'           => __('That page\'s address', 'lonsda-light-form'),
-            '{language}'           => __('Language code, e.g. lv', 'lonsda-light-form'),
-            '{locale}'             => __('Full locale, e.g. lv_LV', 'lonsda-light-form'),
-            '{ip}'                 => __('Submitter\'s IP address', 'lonsda-light-form'),
-            '{user_agent}'         => __('Their browser', 'lonsda-light-form'),
-        ];
+        echo self::placeholderPanel(
+            $form['settings']['fields'] ?? [],
+            __('For the notification and auto reply. Click one to copy it.', 'lonsda-light-form'),
+            __('Save the form and its fields appear here, one token each.', 'lonsda-light-form')
+        );
+    }
+
+    /**
+     * The list of placeholder tokens, for anywhere somebody types one.
+     *
+     * Shared by the form editor, where the wording is written, and the
+     * translations screen, where it is written again in another language and
+     * the tokens have to survive the trip. A translator who retypes {site_name}
+     * as {site-name} gets a subject with a brace in it, and nothing anywhere
+     * says why — so the tokens are put in front of them, copyable, rather than
+     * left to memory.
+     *
+     * @param array  $fields Field definitions whose names are tokens too.
+     * @param string $intro  Line above the list.
+     * @param string $empty  What to say when there are no fields to list.
+     */
+    public static function placeholderPanel(array $fields, string $intro, string $empty): string
+    {
+        ob_start();
         ?>
         <div class="llf-placeholders">
-            <p class="description">
-                <?php esc_html_e('For the notification and auto reply. Click one to copy it.', 'lonsda-light-form'); ?>
-            </p>
+            <p class="description"><?php echo esc_html($intro); ?></p>
 
-            <h4><?php esc_html_e('This form\'s fields', 'lonsda-light-form'); ?></h4>
+            <h4><?php esc_html_e('Field answers', 'lonsda-light-form'); ?></h4>
 
             <?php if (!$fields) : ?>
-                <p class="description">
-                    <?php esc_html_e('Save the form and its fields appear here, one token each.', 'lonsda-light-form'); ?>
-                </p>
+                <p class="description"><?php echo esc_html($empty); ?></p>
             <?php else : ?>
                 <ul class="llf-placeholder-list">
                     <?php foreach ($fields as $field) : ?>
@@ -756,7 +761,7 @@ class Admin
 
             <h4><?php esc_html_e('Always available', 'lonsda-light-form'); ?></h4>
             <ul class="llf-placeholder-list">
-                <?php foreach ($fixed as $token => $what) : ?>
+                <?php foreach (\LonsdaLightForm\Notifications::placeholderReference() as $token => $what) : ?>
                     <li>
                         <code class="llf-copy" tabindex="0" role="button"><?php echo esc_html($token); ?></code>
                         <span class="description"><?php echo esc_html($what); ?></span>
@@ -765,7 +770,7 @@ class Admin
             </ul>
 
             <p class="description">
-                <?php esc_html_e('A field named the same as a fixed one does not replace it — the fixed set means the same on every form.', 'lonsda-light-form'); ?>
+                <?php esc_html_e('Underscores, not dashes: {site_name} is replaced and {site-name} is not — an unknown token is left in the message as it was typed. A field named the same as a fixed one does not displace it, since the fixed set means the same on every form.', 'lonsda-light-form'); ?>
             </p>
         </div>
 
@@ -778,9 +783,27 @@ class Admin
             .llf-copied { background: #00a32a !important; color: #fff !important; }
         </style>
         <?php
+
+        return (string) ob_get_clean();
     }
 
     /** Loads the form editor's own script, for the Testing tab. */
+    /** The copy-a-token script, for either screen that shows the panel. */
+    public static function enqueuePlaceholders(): void
+    {
+        wp_enqueue_script('llf-placeholders', LLF_URL . 'assets/js/placeholders.js', [], LLF_VERSION, true);
+    }
+
+    /** The same panel appears on the translations screen. */
+    public static function enqueueTranslations(): void
+    {
+        if (!isset($_GET['page']) || LLF_SLUG . '-translations' !== $_GET['page']) {
+            return;
+        }
+
+        self::enqueuePlaceholders();
+    }
+
     public static function enqueueFormEditor(): void
     {
         if (!function_exists('get_current_screen')) {
@@ -794,6 +817,7 @@ class Admin
         }
 
         wp_enqueue_script('llf-form-editor', LLF_URL . 'assets/js/form-editor.js', [], LLF_VERSION, true);
+        self::enqueuePlaceholders();
 
         wp_localize_script('llf-form-editor', 'LLFFormEditor', [
             'postUrl' => admin_url('admin-post.php'),

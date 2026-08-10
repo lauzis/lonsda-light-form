@@ -116,11 +116,44 @@ class Notifications
     }
 
     /**
+     * The fixed placeholders, described, for anywhere they have to be listed.
+     *
+     * One list, because there is more than one screen that has to show it —
+     * the form editor and the translations page — and two copies of it is how
+     * a screen ends up naming a token that does not exist. The names here are
+     * the names placeholders() produces, underscores and all: {site_name} is
+     * not {site-name}, and the only defence against that is a list drawn from
+     * the same place the substitution is.
+     *
+     * @return array<string, string> Token => what it becomes.
+     */
+    public static function placeholderReference(): array
+    {
+        return [
+            '{all_fields}'         => __('Every field and its answer, label in bold', 'lonsda-light-form'),
+            '{submission_details}' => __('Page, language, IP and time, omitting any it lacks', 'lonsda-light-form'),
+            '{form_title}'         => __('This form\'s title', 'lonsda-light-form'),
+            '{site_name}'          => __('The site title', 'lonsda-light-form'),
+            '{site_url}'           => __('The site address', 'lonsda-light-form'),
+            '{submitted_at}'       => __('When it was submitted, UTC', 'lonsda-light-form'),
+            '{page_title}'         => __('The page the form was on', 'lonsda-light-form'),
+            '{page_url}'           => __('That page\'s address', 'lonsda-light-form'),
+            '{language}'           => __('Language code, e.g. lv', 'lonsda-light-form'),
+            '{locale}'             => __('Full locale, e.g. lv_LV', 'lonsda-light-form'),
+            '{ip}'                 => __('Submitter\'s IP address', 'lonsda-light-form'),
+            '{user_agent}'         => __('Their browser', 'lonsda-light-form'),
+        ];
+    }
+
+    /**
      * Everything {in_braces} stands for, for both the subject and the message.
      *
      * Field answers first, then the built-ins, so a field named site_name
      * cannot quietly displace the site's own — the fixed set has to mean the
      * same thing on every form.
+     *
+     * Built in whatever language is current, so the words this produces — a
+     * ticked box, a field's label — match the wording they are substituted into.
      *
      * @return array<string, string>
      */
@@ -138,7 +171,7 @@ class Notifications
             $value = $values[$name] ?? null;
 
             if ('checkbox' === ($field['type'] ?? '')) {
-                $value = $value ? __('Yes', 'lonsda-light-form') : __('No', 'lonsda-light-form');
+                $value = $value ? Strings::general('word_yes') : Strings::general('word_no');
             }
 
             $tokens['{' . $name . '}'] = trim((string) $value);
@@ -294,18 +327,27 @@ class Notifications
             $value = $values[$name] ?? null;
 
             if ('checkbox' === ($field['type'] ?? '')) {
-                $value = $value ? __('Yes', 'lonsda-light-form') : __('No', 'lonsda-light-form');
+                $value = $value ? Strings::general('word_yes') : Strings::general('word_no');
             }
 
             $value = trim((string) $value);
 
             $answer = '' === $value
-                ? '<em>' . esc_html__('(not answered)', 'lonsda-light-form') . '</em>'
+                ? '<em>' . esc_html(Strings::general('word_not_answered')) . '</em>'
                 // Line breaks kept: a textarea answer is written in paragraphs
                 // and collapsing it into one line loses what the person meant.
                 : nl2br(esc_html($value));
 
-            $blocks[] = '<p><strong>' . esc_html((string) ($field['label'] ?? $name)) . ':</strong><br>'
+            // Translated like the label on the form is, and for the same
+            // reason: this list is read by whoever the mail is addressed to. An
+            // auto reply otherwise arrived in the visitor's language with every
+            // question still in English.
+            $label = Strings::get(
+                (string) ($field['label'] ?? $name),
+                (string) ($field['translation_key'] ?? '')
+            );
+
+            $blocks[] = '<p><strong>' . esc_html($label) . ':</strong><br>'
                 . $answer . '</p>';
         }
 

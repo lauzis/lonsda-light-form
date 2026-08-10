@@ -380,7 +380,13 @@ $llf_settings_url    = admin_url('admin.php?page=' . LLF_SLUG . '-settings');
         ?>
     </p>
     <p style="max-width:860px;">
-        <?php esc_html_e('The list is grouped — form fields, submit button, confirmation, notification, auto reply — so it is clear which strings a visitor actually reads and which only you do.', 'lonsda-light-form'); ?>
+        <?php esc_html_e('The list is grouped — form fields, submit button, confirmation, notification, auto reply, general texts — so it is clear which strings a visitor actually reads and which only you do.', 'lonsda-light-form'); ?>
+    </p>
+    <p style="max-width:860px;">
+        <?php esc_html_e('General texts are the plugin\'s own wording rather than any form\'s: "This field is required.", "Please enter a valid email address.", what the form says above itself after a submission, and the Yes or No a ticked box becomes in an email. They are the same on every form, so the form picker has an entry for them on their own. Without translating these, a site could translate every label it had and still tell people a field was required in English.', 'lonsda-light-form'); ?>
+    </p>
+    <p style="max-width:860px;">
+        <?php esc_html_e('The placeholders are listed beside the boxes, and clicking one copies it. A translated subject line still has {site_name} in it, and a token retyped with a dash instead of an underscore is replaced by nothing — it simply arrives in the email as it was typed, with no clue as to why.', 'lonsda-light-form'); ?>
     </p>
     <ul style="list-style:disc;padding-left:22px;max-width:860px;">
         <li><?php esc_html_e('An empty box means untranslated, and the original wording is shown instead. Nothing ever renders as a bare key.', 'lonsda-light-form'); ?></li>

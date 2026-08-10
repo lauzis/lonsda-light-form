@@ -30,6 +30,16 @@ class Translations
     public const GROUP_CONFIRMATION = 'confirmation';
     public const GROUP_NOTIFICATION = 'notification';
     public const GROUP_AUTO_REPLY   = 'auto_reply';
+    public const GROUP_GENERAL      = 'general';
+
+    /**
+     * Stands in for a form id, to ask for the plugin's own strings on their own.
+     *
+     * Negative because every real form id is positive and 0 already means "all
+     * of them" — a third meaning needs a third value rather than a flag nobody
+     * remembers to pass.
+     */
+    public const GENERAL = -1;
 
     /**
      * Group => heading, in the order the editor shows them.
@@ -48,6 +58,11 @@ class Translations
             self::GROUP_CONFIRMATION => __('Confirmation message', 'lonsda-light-form'),
             self::GROUP_NOTIFICATION => __('Notification email', 'lonsda-light-form'),
             self::GROUP_AUTO_REPLY   => __('Auto reply email', 'lonsda-light-form'),
+            // Last, though a visitor meets these first: they belong to the
+            // plugin rather than to the form being worked on, and are the same
+            // however many forms the site has. Above the form's own strings
+            // they would push the work somebody came here to do off the screen.
+            self::GROUP_GENERAL      => __('General texts', 'lonsda-light-form'),
         ];
     }
 
@@ -322,7 +337,16 @@ class Translations
     {
         $strings = [];
 
-        foreach (Forms::all() as $row) {
+        // With the forms rather than instead of them when nothing is picked:
+        // they are part of what the site says, and a POT that left them out
+        // would be a translation job that looked finished and was not.
+        if ($form_id <= 0) {
+            foreach (Strings::generalStrings() as $key => $text) {
+                self::collect($strings, $key, $text, __('Every form', 'lonsda-light-form'), self::GROUP_GENERAL);
+            }
+        }
+
+        foreach (self::GENERAL === $form_id ? [] : Forms::all() as $row) {
             if ($form_id > 0 && (int) $row->id !== $form_id) {
                 continue;
             }

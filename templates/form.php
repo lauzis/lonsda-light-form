@@ -40,7 +40,7 @@ $llf_has_errors = !empty($errors);
     // announce a field its user must leave alone.
     ?>
     <div class="llf-hp" aria-hidden="true" style="position:absolute;left:-9999px;" tabindex="-1">
-        <label for="llf-hp-<?php echo esc_attr($llf_id); ?>"><?php esc_html_e('Leave this field empty', 'lonsda-light-form'); ?></label>
+        <label for="llf-hp-<?php echo esc_attr($llf_id); ?>"><?php echo esc_html(\LonsdaLightForm\Strings::general('honeypot_label')); ?></label>
         <input type="text" id="llf-hp-<?php echo esc_attr($llf_id); ?>"
                name="<?php echo esc_attr(\LonsdaLightForm\Renderer::FIELD_HONEYPOT); ?>"
                value="" autocomplete="off" tabindex="-1">

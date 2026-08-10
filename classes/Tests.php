@@ -43,6 +43,7 @@ class Tests
             'entries'       => __('Stored entries', 'lonsda-light-form'),
             'notifications' => __('Notification emails', 'lonsda-light-form'),
             'auto-reply'    => __('Auto reply', 'lonsda-light-form'),
+            'placeholders'  => __('Placeholders and translation', 'lonsda-light-form'),
             'test-mail'     => __('Testing tab', 'lonsda-light-form'),
             'translations'  => __('Translations', 'lonsda-light-form'),
             'cleanup'       => __('Clean up leftovers from earlier runs', 'lonsda-light-form'),
@@ -77,6 +78,7 @@ class Tests
                 'entries'       => self::entriesScenario(),
                 'notifications' => self::notificationsScenario(),
                 'auto-reply'    => self::autoReplyScenario(),
+                'placeholders'  => self::placeholdersScenario(),
                 'test-mail'     => self::testMailScenario(),
                 'translations'  => self::translationsScenario(),
                 'cleanup'       => self::cleanupScenario(),
@@ -703,6 +705,22 @@ class Tests
             false !== strpos((string) ($mail['message'] ?? ''), 'Placeholder body')
         );
 
+        self::title(__('Every placeholder the screens list is one that exists', 'lonsda-light-form'));
+        // The list shown on the form editor and beside the translations is what
+        // somebody types from. A token on that list that nothing substitutes is
+        // a brace in an email and no clue as to why.
+        $listed = array_keys(Notifications::placeholderReference());
+        $real   = array_keys(Notifications::placeholders(
+            [],
+            ['settings' => ['fields' => []], 'title' => 'x'],
+            ['form_id' => 0, 'submitted_at' => '2026-01-01 00:00:00', 'language' => 'lv', 'locale' => 'lv_LV', 'ip' => '', 'user_agent' => '']
+        ));
+        $unreal = array_diff($listed, $real);
+        self::assert(
+            $unreal ? 'listed but never replaced: ' . implode(', ', $unreal) : count($listed) . ' listed, all real',
+            [] === $unreal
+        );
+
         self::title(__('An unknown placeholder is left alone rather than emptied', 'lonsda-light-form'));
         // {site-name} is not {site_name}, and only the second is a placeholder.
         // Nothing invents a replacement for one that does not exist, so a typo
@@ -948,6 +966,215 @@ class Tests
         self::assert('every send was cancelled', true);
     }
 
+    /**
+     * Placeholders and translation together, which is where either one breaks.
+     *
+     * Separately they are simple: a token is replaced, a string is translated.
+     * The interesting part is the order — a string is translated first and its
+     * tokens filled in afterwards, so a language can put {name} wherever it
+     * wants it — and the fact that the words a token stands for are themselves
+     * translated: a ticked box, a field's label, an unanswered field.
+     *
+     * The form here is given a full set of example translations rather than one
+     * or two, because the failure being guarded against is not "no translation
+     * arrived" but "half of it did".
+     */
+    private static function placeholdersScenario(): void
+    {
+        self::heading(__('Placeholders and translation', 'lonsda-light-form'));
+
+        // Writes to the test locale nothing serves; cleanup removes the files.
+
+        $post_id = self::makeForm('Placeholders', [
+            ['label' => 'Email', 'name' => 'email', 'type' => 'text', 'validation' => 'email', 'required' => true],
+            ['label' => 'Name', 'name' => 'sender_name', 'type' => 'text'],
+            ['label' => 'Nickname', 'name' => 'nickname', 'type' => 'text'],
+            ['label' => 'Consent', 'name' => 'consent', 'type' => 'checkbox'],
+        ]);
+        $form_id = Forms::tableIdForPost($post_id);
+
+        carbon_set_post_meta($post_id, 'llf_notify_to', 'owner@example.com');
+        carbon_set_post_meta($post_id, 'llf_notify_subject', 'From {sender_name} via {site_name}');
+        carbon_set_post_meta($post_id, 'llf_auto_reply', true);
+        carbon_set_post_meta($post_id, 'llf_auto_reply_subject', 'Thank you {sender_name} — {site_name}');
+        carbon_set_post_meta($post_id, 'llf_auto_reply_message', '<p>Hello {sender_name}.</p>{all_fields}');
+        Forms::syncToTable($post_id, get_post($post_id));
+
+        $notified = [];
+        $replied  = [];
+
+        $spyNote  = static function ($mail) use (&$notified) {
+            $notified[] = $mail;
+
+            return $mail;
+        };
+
+        $spyReply = static function ($mail) use (&$replied) {
+            $replied[] = $mail;
+
+            return $mail;
+        };
+
+        add_filter(Notifications::FILTER_MAIL, $spyNote, 10);
+        add_filter(AutoReply::FILTER_MAIL, $spyReply, 10);
+
+        $answers = [
+            'email'       => 'visitor@example.com',
+            'sender_name' => 'Anna',
+            'nickname'    => '',
+            'consent'     => '1',
+        ];
+
+        $site = (string) get_bloginfo('name');
+
+        self::submit($form_id, $answers);
+
+        self::title(__('In the site\'s own language, every token is replaced', 'lonsda-light-form'));
+        // Exact equality rather than a search: a token that survived would sit
+        // there in braces, and "contains Anna" would pass with it.
+        self::assert(
+            (string) ($replied[0]['subject'] ?? ''),
+            'Thank you Anna — ' . $site === ($replied[0]['subject'] ?? '')
+                && 'From Anna via ' . $site === ($notified[0]['subject'] ?? '')
+        );
+
+        self::title(__('Nothing is left in braces', 'lonsda-light-form'));
+        $everything = (string) ($replied[0]['subject'] ?? '') . (string) ($replied[0]['message'] ?? '');
+        self::assert(
+            'no unreplaced token anywhere in the reply',
+            false === strpos($everything, '{')
+        );
+
+        self::title(__('{all_fields} carries the labels, the answers and the words between', 'lonsda-light-form'));
+        self::assert(
+            'label, answer, a ticked box as a word, an empty field named as such',
+            self::hasAll((string) ($replied[0]['message'] ?? ''), ['Name:', 'Anna', 'Consent:', 'Yes', '(not answered)'])
+        );
+
+        // An example translation of the whole form, as a site would have.
+        $settings = Forms::get($form_id)['settings'];
+        $keys     = [];
+
+        foreach ($settings['fields'] as $field) {
+            $keys[$field['name']] = (string) $field['translation_key'];
+        }
+
+        Translations::save(self::TEST_LOCALE, [
+            $keys['email']       => 'E-pasts',
+            $keys['sender_name'] => 'Vārds',
+            $keys['nickname']    => 'Segvārds',
+            $keys['consent']     => 'Piekrišana',
+
+            (string) $settings['submit_key']  => 'Sūtīt',
+            (string) $settings['success_key'] => 'Paldies! Ziņa ir nosūtīta.',
+
+            // Deliberately reordered: {site_name} first, where English had it
+            // last. Substituting before translating would make this impossible,
+            // and nothing else in the suite would notice.
+            (string) $settings['auto_reply_subject_key']  => '{site_name}: paldies, {sender_name}',
+            (string) $settings['auto_reply_message_key']  => '<p>Sveiki, {sender_name}!</p>{all_fields}',
+            (string) $settings['notify_subject_key']      => '{site_name}: ziņa no {sender_name}',
+
+            'general__word_yes'          => 'Jā',
+            'general__word_not_answered' => '(nav atbildēts)',
+            'general__error_required'    => 'Šis lauks ir obligāts.',
+            'general__error_max_length'  => 'Ne vairāk kā %d rakstzīmes.',
+        ]);
+
+        // The language the submission was made in, which is what the auto reply
+        // is written in — see AutoReply. Nothing loads the file by hand here.
+        $inLatvian = static function ($context) {
+            $context['locale']   = self::TEST_LOCALE;
+            $context['language'] = 'zz';
+
+            return $context;
+        };
+
+        $replied  = [];
+        $notified = [];
+
+        add_filter(Submission::FILTER_CONTEXT, $inLatvian, 10);
+        self::submit($form_id, $answers);
+        remove_filter(Submission::FILTER_CONTEXT, $inLatvian, 10);
+
+        self::title(__('A translation may put the tokens somewhere else entirely', 'lonsda-light-form'));
+        self::assert(
+            (string) ($replied[0]['subject'] ?? ''),
+            $site . ': paldies, Anna' === ($replied[0]['subject'] ?? '')
+        );
+
+        self::title(__('And the words a token stands for are translated too', 'lonsda-light-form'));
+        // The half that used to be missed: the wording around {all_fields} was
+        // translated and the list inside it was not, so a Latvian reply asked
+        // its questions in English.
+        self::assert(
+            'translated labels, and a ticked box as a translated word',
+            self::hasAll((string) ($replied[0]['message'] ?? ''), ['Sveiki, Anna', 'Vārds:', 'Piekrišana:', 'Jā', '(nav atbildēts)'])
+        );
+
+        self::title(__('The notification stays in the language of the request', 'lonsda-light-form'));
+        // Deliberate, and the reason the two are not written the same way: this
+        // one is read by whoever runs the site, not by the visitor.
+        self::assert(
+            (string) ($notified[0]['subject'] ?? ''),
+            'From Anna via ' . $site === ($notified[0]['subject'] ?? '')
+        );
+
+        $replied = [];
+        self::submit($form_id, $answers);
+
+        self::title(__('A submission in the site\'s language is answered in it again', 'lonsda-light-form'));
+        // The language has to be put back, or the first translated reply would
+        // be the last English one.
+        self::assert(
+            (string) ($replied[0]['subject'] ?? ''),
+            'Thank you Anna — ' . $site === ($replied[0]['subject'] ?? '')
+        );
+
+        // The validation messages are shown by the request rather than by a
+        // mail, so this is the request's own language changing rather than a
+        // submission's.
+        unload_textdomain(Translations::DOMAIN);
+        load_textdomain(Translations::DOMAIN, Translations::path(self::TEST_LOCALE));
+
+        $required = Submission::validate(['name' => 'x', 'type' => 'text', 'required' => true], '');
+        $tooLong  = Submission::validate(['name' => 'x', 'type' => 'text', 'max_length' => 5], 'far too long');
+
+        unload_textdomain(Translations::DOMAIN);
+        Translations::load();
+
+        self::title(__('A general text is translated where it is shown', 'lonsda-light-form'));
+        self::assert($required, 'Šis lauks ir obligāts.' === $required);
+
+        self::title(__('And a number in one is filled in after translating, not before', 'lonsda-light-form'));
+        // %d survives the trip and lands where the translation put it, which is
+        // the whole reason the number is not baked in before the lookup.
+        self::assert($tooLong, 'Ne vairāk kā 5 rakstzīmes.' === $tooLong);
+
+        self::title(__('A token that does not exist is left alone, even in a translation', 'lonsda-light-form'));
+        // {site-name} is not {site_name}. It arrives as itself rather than as a
+        // blank, which is the difference between seeing the mistake and not.
+        Translations::save(self::TEST_LOCALE, [
+            (string) $settings['auto_reply_subject_key'] => 'Sveiki no {site-name}',
+        ]);
+
+        $replied = [];
+        add_filter(Submission::FILTER_CONTEXT, $inLatvian, 10);
+        self::submit($form_id, $answers);
+        remove_filter(Submission::FILTER_CONTEXT, $inLatvian, 10);
+
+        self::assert(
+            (string) ($replied[0]['subject'] ?? ''),
+            'Sveiki no {site-name}' === ($replied[0]['subject'] ?? '')
+        );
+
+        remove_filter(Notifications::FILTER_MAIL, $spyNote, 10);
+        remove_filter(AutoReply::FILTER_MAIL, $spyReply, 10);
+
+        self::title(__('No mail left this run', 'lonsda-light-form'));
+        self::assert('every send was cancelled', true);
+    }
+
     private static function testMailScenario(): void
     {
         self::heading(__('Testing tab', 'lonsda-light-form'));
@@ -1077,6 +1304,30 @@ class Tests
             count($mine) . ' for this form',
             isset($mine[$key]) && count($mine) <= count($strings) && [] === Translations::strings(999999)
         );
+
+        self::title(__('The plugin\'s own texts are offered alongside the forms', 'lonsda-light-form'));
+        // They belong to no form, so picking one must not list them — and
+        // asking for them by themselves must not drag every form along.
+        $general = Translations::strings(Translations::GENERAL);
+        self::assert(
+            count($general) . ' general text(s)',
+            isset($general['general__error_required'], $strings['general__error_required'])
+                && !isset($mine['general__error_required'])
+                && count($general) === count(Strings::generalStrings())
+        );
+
+        self::title(__('And translating one changes what a visitor is told', 'lonsda-light-form'));
+        // The whole point of listing them: these used to be reachable only by
+        // editing a .po inside a folder WordPress replaces on every update.
+        Translations::save(self::TEST_LOCALE, ['general__error_required' => 'Šis lauks ir obligāts.']);
+
+        unload_textdomain(Translations::DOMAIN);
+        load_textdomain(Translations::DOMAIN, Translations::path(self::TEST_LOCALE));
+        $said = Submission::validate(['name' => 'x', 'type' => 'text', 'required' => true], '');
+        unload_textdomain(Translations::DOMAIN);
+        Translations::load();
+
+        self::assert($said, 'Šis lauks ir obligāts.' === $said);
 
         self::title(__('The POT keys by context and reads by label', 'lonsda-light-form'));
         $pot = Translations::pot();
@@ -1426,8 +1677,8 @@ class Tests
             wp_delete_post($id, true);
         }
 
-        // Written by the translation scenario, and only ever by it — the locale
-        // is one no site serves.
+        // Written by any scenario that needs a translation to exist, and only
+        // ever to the test locale, which no site serves.
         foreach ([Translations::path(self::TEST_LOCALE), Translations::poPath(self::TEST_LOCALE)] as $file) {
             if (file_exists($file)) {
                 unlink($file);

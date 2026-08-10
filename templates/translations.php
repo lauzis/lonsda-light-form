@@ -12,6 +12,7 @@ $llf_locales     = Translations::locales();
 $llf_editing     = isset($_GET['llf_locale'])
     ? Translations::sanitizeLocale(wp_unslash($_GET['llf_locale']))
     : $llf_current;
+// Can be Translations::GENERAL, which is not a form at all — see the picker.
 $llf_form        = isset($_GET['llf_form']) ? (int) $_GET['llf_form'] : 0;
 $llf_strings     = Translations::strings($llf_form);
 $llf_all_strings = Translations::strings();
@@ -53,7 +54,7 @@ $llf_base      = admin_url('admin.php?page=' . LLF_SLUG . '-translations');
 
     <h2><?php esc_html_e('Translate', 'lonsda-light-form'); ?></h2>
     <p class="description">
-        <?php esc_html_e('Pick a language and a form, fill in the boxes, and save. Both a .mo and a .po are written, so the same translation can be carried on in Poedit or handed to someone else.', 'lonsda-light-form'); ?>
+        <?php esc_html_e('Pick a language and a form, fill in the boxes, and save. Both a .mo and a .po are written, so the same translation can be carried on in Poedit or handed to someone else. General texts are the plugin\'s own wording — the validation messages a visitor is shown, and what the form says after a submission — and they are the same on every form.', 'lonsda-light-form'); ?>
     </p>
 
     <form method="get" style="margin:12px 0;">
@@ -70,7 +71,10 @@ $llf_base      = admin_url('admin.php?page=' . LLF_SLUG . '-translations');
 
         <label for="llf_form_pick" style="margin-left:12px;"><?php esc_html_e('Form', 'lonsda-light-form'); ?></label>
         <select name="llf_form" id="llf_form_pick">
-            <option value="0"><?php esc_html_e('All forms', 'lonsda-light-form'); ?></option>
+            <option value="0"><?php esc_html_e('All forms and general texts', 'lonsda-light-form'); ?></option>
+            <option value="<?php echo esc_attr((string) Translations::GENERAL); ?>" <?php selected(Translations::GENERAL, $llf_form); ?>>
+                <?php esc_html_e('General texts only', 'lonsda-light-form'); ?>
+            </option>
             <?php foreach ($llf_all_forms as $llf_fid => $llf_ftitle) : ?>
                 <option value="<?php echo esc_attr($llf_fid); ?>" <?php selected($llf_fid, $llf_form); ?>>
                     <?php echo esc_html($llf_ftitle); ?>
@@ -80,6 +84,16 @@ $llf_base      = admin_url('admin.php?page=' . LLF_SLUG . '-translations');
 
         <?php submit_button(__('Show', 'lonsda-light-form'), 'secondary', '', false); ?>
     </form>
+
+    <?php
+    // The tokens belong beside the boxes rather than under them: a translator
+    // is retyping a sentence that has {site_name} in it, and a token retyped
+    // wrongly survives every check there is and turns up in an email.
+    $llf_panel_form   = $llf_form > 0 ? \LonsdaLightForm\Forms::get($llf_form) : null;
+    $llf_panel_fields = $llf_panel_form['settings']['fields'] ?? [];
+    ?>
+    <div class="llf-translate-layout">
+    <div class="llf-translate-main">
 
     <?php if (!$llf_strings) : ?>
         <p><em><?php esc_html_e('Nothing to translate — no form here has any fields yet.', 'lonsda-light-form'); ?></em></p>
@@ -136,6 +150,39 @@ $llf_base      = admin_url('admin.php?page=' . LLF_SLUG . '-translations');
             <?php submit_button(__('Save translations', 'lonsda-light-form')); ?>
         </form>
     <?php endif; ?>
+
+    </div><!-- .llf-translate-main -->
+
+    <aside class="llf-translate-side">
+        <h3><?php esc_html_e('Placeholders', 'lonsda-light-form'); ?></h3>
+        <?php
+        echo \LonsdaLightForm\Admin::placeholderPanel(
+            $llf_panel_fields,
+            __('These are replaced when the mail is sent. Type them into a translation exactly as they are — click one to copy it.', 'lonsda-light-form'),
+            $llf_form > 0
+                ? __('This form has no fields yet.', 'lonsda-light-form')
+                : __('Pick a single form above and its own field tokens are listed here too.', 'lonsda-light-form')
+        );
+        ?>
+    </aside>
+    </div><!-- .llf-translate-layout -->
+
+    <style>
+        .llf-translate-layout { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+        .llf-translate-main { flex: 1 1 640px; min-width: 0; }
+        .llf-translate-side {
+            flex: 0 1 280px;
+            padding: 4px 16px 12px;
+            border: 1px solid #dcdcde;
+            border-radius: 4px;
+            background: #fff;
+            /* Follows the page down: the tables are long, and a reference that
+               has scrolled away is a reference nobody uses. */
+            position: sticky;
+            top: 46px;
+        }
+        .llf-translate-side h3 { margin-top: 12px; }
+    </style>
 
     <h2><?php esc_html_e('Download', 'lonsda-light-form'); ?></h2>
     <p>

@@ -385,6 +385,26 @@ labels are already in the right language needs no keys.
 On a multilingual site the form editor says this once, dismissibly, because the
 decision is cheap now and expensive later.
 
+### The plugin's own wording
+
+The messages a visitor reads that were never typed into a form — *This field is
+required.*, *Please enter a valid email address.*, *Please check the highlighted
+fields.*, the Yes and No a ticked box becomes in an email — are listed on the
+Translations screen too, under **General texts**, and the form picker has an
+entry for them on their own.
+
+They used to be plain `__()` calls against the plugin's text domain, which put
+them out of reach of the screen where everything else is translated: a site
+could translate every label and still tell people "This field is required." in
+English, because the only route was a `.po` inside a folder WordPress replaces
+on every update. They now go through the same layer a form's own strings do —
+WPML first, then the form-content MO — keyed `general__error_required` and the
+like, with the English as the msgid so an untranslated one still reads as a
+sentence.
+
+Only what a visitor can see. Admin wording is translated the ordinary way;
+whoever reads it can also read a `.po`.
+
 ### Delivering the translations
 
 Two routes, tried in that order.
@@ -399,8 +419,16 @@ Translations** works from the stored forms instead.
 
 Translate in the browser: pick a language and a form, fill in the boxes, save.
 The list is grouped — form fields, submit button, confirmation message,
-notification email, auto reply email — because a flat list of a dozen keys gives
-no sense of which of them a visitor actually reads.
+notification email, auto reply email, general texts — because a flat list of a
+dozen keys gives no sense of which of them a visitor actually reads.
+
+The placeholders are listed beside the boxes, copyable, for the same reason they
+are listed beside the form editor: a translation of a subject line has
+`{site_name}` in it, and a token retyped as `{site-name}` passes every check
+there is and turns up in an email as a brace. Both panels are drawn from
+`Notifications::placeholderReference()` — one list, so a screen cannot name a
+token that does not exist, and a self test checks every listed token against
+what the substitution actually produces.
 Both a `.mo` and a `.po` are written, so a translation started here can be
 carried on in Poedit or handed to someone else, and one done elsewhere can be
 uploaded back. A `.po` is compiled to `.mo` on the way in, so either will do.
@@ -687,6 +715,7 @@ capability that is not what anyone assumed.
 | Stored entries | Storage, status, the unread count, filtering, CSV, deletion. |
 | Notification emails | Recipients, placeholders, Reply-To, and that nothing is actually sent. |
 | Auto reply | Off by default, the address it picks, placeholders, the text part, stripped script, and that the submission's own language is the one it is answered in — and is put back afterwards. |
+| Placeholders and translation | The two together: every token replaced in the site's own language, a full example translation of one form, a translation that moves the tokens somewhere else, the words a token stands for translated with it, and a number filled into a translated message rather than before it. |
 | Testing tab | The recipient swap, the `TEST` mark, filled-in answers, a refused address, and that a test is not stored as an entry. |
 | Translations | Collection, the POT, saving, merging, clearing, and that no language is offered twice. |
 | Clean up leftovers | Removes anything an interrupted run left behind. |

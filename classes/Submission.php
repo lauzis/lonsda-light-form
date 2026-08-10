@@ -114,7 +114,7 @@ class Submission
                 // Says what to do next, and that nothing was lost doing it. The
                 // form redisplays with a nonce of its own, so pressing send
                 // again works rather than failing the same way.
-                'notice'  => __('That form had been open too long to send, so nothing was sent. Your answers are still here — please send it again.', 'lonsda-light-form'),
+                'notice'  => Strings::general('notice_expired'),
                 'success' => false,
             ];
 
@@ -140,7 +140,7 @@ class Submission
                 'form_id' => $form_id,
                 'errors'  => [],
                 'values'  => $values,
-                'notice'  => __('Your message could not be sent. Please try again.', 'lonsda-light-form'),
+                'notice'  => Strings::general('notice_spam'),
                 'success' => false,
             ];
 
@@ -148,7 +148,7 @@ class Submission
         }
 
         if (FormBuilder::recaptchaActive($form['settings'] ?? []) && !self::recaptchaPassed()) {
-            $errors['_recaptcha'] = __('Please confirm you are not a robot.', 'lonsda-light-form');
+            $errors['_recaptcha'] = Strings::general('error_recaptcha');
         }
 
         /** @var array $errors */
@@ -168,7 +168,7 @@ class Submission
                 'form_id' => $form_id,
                 'errors'  => $errors,
                 'values'  => $values,
-                'notice'  => __('Please check the highlighted fields.', 'lonsda-light-form'),
+                'notice'  => Strings::general('notice_errors'),
                 'success' => false,
             ];
 
@@ -186,7 +186,7 @@ class Submission
             // Wording lives on the form and is resolved by the renderer, which
             // is the only place that has the form definition to hand. This is
             // the fallback for anything reading the result directly.
-            'notice'  => __('Thank you — your message has been sent.', 'lonsda-light-form'),
+            'notice'  => Strings::general('notice_sent'),
             'success' => true,
         ];
     }
@@ -239,7 +239,7 @@ class Submission
 
         if ('checkbox' === $field['type']) {
             return ($required && !$value)
-                ? __('This box must be ticked.', 'lonsda-light-form')
+                ? Strings::general('error_checkbox')
                 : '';
         }
 
@@ -248,19 +248,17 @@ class Submission
         if ('' === trim($value)) {
             // An empty optional field skips the remaining rules: an unanswered
             // question is not a badly answered one.
-            return $required ? __('This field is required.', 'lonsda-light-form') : '';
+            return $required ? Strings::general('error_required') : '';
         }
 
         if (!empty($field['max_length']) && mb_strlen($value) > (int) $field['max_length']) {
-            return sprintf(
-                /* translators: %d: maximum number of characters */
-                __('Please use no more than %d characters.', 'lonsda-light-form'),
-                (int) $field['max_length']
-            );
+            // Substituted after translation, so a language that wants the
+            // number elsewhere in the sentence can put it there.
+            return sprintf(Strings::general('error_max_length'), (int) $field['max_length']);
         }
 
         if ('email' === ($field['validation'] ?? '') && !is_email($value)) {
-            return __('Please enter a valid email address.', 'lonsda-light-form');
+            return Strings::general('error_email');
         }
 
         if ('regex' === ($field['validation'] ?? '') && '' !== (string) $field['pattern']) {
@@ -281,7 +279,7 @@ class Submission
             }
 
             if (0 === $matched) {
-                return __('Please enter this in the expected format.', 'lonsda-light-form');
+                return Strings::general('error_pattern');
             }
         }
 

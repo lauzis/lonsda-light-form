@@ -35,6 +35,25 @@
       ]
     },
     {
+      "id": "appearance",
+      "title": "Appearance",
+      "description": "The plugin styles only the parts of a form that appear after a submission — the confirmation, the failure message, and a field that was rejected. The rest of the form is left to the theme.",
+      "fields": [
+        {
+          "id": "styles",
+          "type": "checkbox",
+          "title": "Use the built-in styles",
+          "default_value": true,
+          "help_text": "Untick to leave the form entirely to the theme. The stylesheet is then not loaded at all, rather than loaded and overridden."
+        },
+        {
+          "id": "styles_preview",
+          "type": "html",
+          "html": "@callback:llf_styles_preview"
+        }
+      ]
+    },
+    {
       "id": "spam",
       "title": "Spam",
       "fields": [

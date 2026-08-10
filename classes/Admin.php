@@ -356,6 +356,88 @@ class Admin
         return (string) ob_get_clean();
     }
 
+    /**
+     * A sample of what the built-in styles do, on the settings page.
+     *
+     * Drawn with the same renderer and the same wording a real form uses, so
+     * the sample cannot quietly stop matching what a visitor is shown. The
+     * alternative — markup copied out of the renderer into here — is a sample
+     * that goes stale the first time either changes, which is worse than none.
+     *
+     * Shown whether or not the styles are switched on: knowing what ticking the
+     * box would do is the reason to look at this at all.
+     */
+    public static function stylesPreview(): string
+    {
+        // Not a <form>: this sits inside the settings page's own form, and one
+        // form inside another is neither valid nor recoverable. Only the class
+        // matters — the stylesheet targets that rather than the element.
+        $field = \LonsdaLightForm\Renderer::field(
+            [
+                'label'      => __('Email', 'lonsda-light-form'),
+                'name'       => 'preview',
+                'type'       => 'text',
+                'required'   => true,
+                'validation' => 'email',
+            ],
+            'not-an-email',
+            __('Please enter a valid email address.', 'lonsda-light-form'),
+            // Disabled for the same reason: a live input here would be posted
+            // along with the settings.
+            ['disabled' => 'disabled']
+        );
+
+        ob_start();
+        ?>
+        <div class="llf-styles-preview">
+            <h3><?php esc_html_e('What they look like', 'lonsda-light-form'); ?></h3>
+
+            <p class="description">
+                <?php
+                echo \LonsdaLightForm\Styles::enabled()
+                    ? esc_html__('These three are in use on the front end. Everything else about the form is the theme\'s.', 'lonsda-light-form')
+                    : esc_html__('These are switched off, so a visitor sees none of it. This is what ticking the box above would give you.', 'lonsda-light-form');
+                ?>
+            </p>
+
+            <div class="llf-styles-sample">
+                <div class="llf-form">
+                    <div class="llf-notice llf-notice--success">
+                        <?php echo wp_kses_post(\LonsdaLightForm\FormBuilder::defaultSuccessMessage()); ?>
+                    </div>
+
+                    <div class="llf-notice llf-notice--error">
+                        <?php esc_html_e('Please check the highlighted fields.', 'lonsda-light-form'); ?>
+                    </div>
+
+                    <?php echo $field; // Escaped field by field by the renderer. ?>
+                </div>
+            </div>
+
+            <p class="description">
+                <?php esc_html_e('Each part is a class of its own — llf-notice--success, llf-notice--error, llf-input--error and llf-error — and the colours are custom properties on .llf-form, so a theme can recolour all of it with one rule instead of turning the lot off.', 'lonsda-light-form'); ?>
+            </p>
+
+            <style>
+                /* The sample's own frame. What is inside it is the real
+                   stylesheet, enqueued for this page like any other. */
+                .llf-styles-sample {
+                    max-width: 480px;
+                    margin: 12px 0;
+                    padding: 16px;
+                    border: 1px solid #dcdcde;
+                    border-radius: 4px;
+                    background: #fff;
+                }
+                .llf-styles-sample .llf-field { margin-bottom: 0; }
+                .llf-styles-sample .llf-input { width: 100%; }
+            </style>
+        </div>
+        <?php
+
+        return (string) ob_get_clean();
+    }
+
     /** Verifies a token from the settings-page test. */
     public static function handleRecaptchaTest(): void
     {
@@ -414,6 +496,11 @@ class Admin
         }
 
         $site = trim((string) \LonsdaLightForm\Settings::get('recaptcha_site_key', ''));
+
+        // The front-end stylesheet, for the sample on the Appearance tab. It is
+        // the real file rather than a copy of it, which is the only way the
+        // sample stays true.
+        \LonsdaLightForm\Styles::enqueuePreview();
 
         wp_enqueue_script(
             'llf-settings',

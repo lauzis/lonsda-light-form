@@ -143,6 +143,7 @@ add_action('add_meta_boxes_' . \LonsdaLightForm\Forms::POST_TYPE, ['\LonsdaLight
 \LonsdaLightForm\Submission::init();
 \LonsdaLightForm\Shortcode::init();
 \LonsdaLightForm\Block::init();
+\LonsdaLightForm\Styles::init();
 
 // Applied on every request, but the runner returns immediately once there is
 // nothing outstanding.

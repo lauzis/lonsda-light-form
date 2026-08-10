@@ -140,6 +140,27 @@ A form saved before these settings existed has neither stored. Both fall back to
 the shipped default, so the behaviour is the same as if the defaults had been
 chosen deliberately.
 
+### A submission that was not accepted
+
+**Whatever the reason, the form comes back filled in.** Nobody retypes anything:
+a failed validation redisplays every answer and marks only the fields at fault,
+a tripped spam check hands the whole lot back, and so does a form that had been
+open too long for its nonce to still verify — the case where the loss would hurt
+most, since it is nobody's mistake and can swallow a message somebody spent ten
+minutes on. That last one redisplays with a fresh nonce, so sending again works
+rather than failing the same way.
+
+The answers are read and sanitised *before* the nonce is checked, which is what
+makes the expired case possible. They are unverified at that point, so they are
+sanitised by field type exactly as an accepted submission's are, kept only for
+fields the form actually has, and escaped again by the renderer on the way out —
+a form to press send on, not content the page has taken on trust. Nothing is
+stored and no hook fires: a submission that failed the nonce or a spam check
+still reaches neither `lonsda_form_submitted` nor `lonsda_form_rejected`.
+
+A submission that *succeeded* is the one case the answers are dropped. Leaving
+them under a "thank you" reads as though nothing was sent.
+
 ## Notifications
 
 A new form arrives prefilled: recipients from the site administration address
@@ -416,10 +437,55 @@ WPML is consulted first and gettext fills in whatever it has no translation for.
 Anything else can hook `lonsda_form_string`, which receives the text, its key
 and the context.
 
+## Styles
+
+The plugin ships one small stylesheet, `assets/css/form.css`, switched on under
+**Settings → Appearance** and enqueued only on a page that actually renders a
+form.
+
+**It covers three things and stops:** the confirmation notice, the failure
+notice, and a field that came back rejected — border, ring and message. The form
+itself is left alone. A theme owns how inputs and buttons look, and a plugin
+that restyles those is a plugin somebody has to fight. What no theme has an
+opinion about is markup it has never seen, which is exactly what appears after a
+submission: on an unstyled site a rejected field looked identical to an accepted
+one, at the one moment the form had something to say.
+
+Every rule is a single class scoped under `.llf-form`, with no `!important`
+anywhere, so a theme rule of the same weight written later simply wins. The
+colours are custom properties, so recolouring the lot is one rule:
+
+```css
+.llf-form {
+    --llf-error-border: #b32d2e;
+    --llf-error-text: #7a1d1e;
+    --llf-error-background: #fdf3f3;
+    --llf-success-border: #1e8c3a;
+    --llf-success-text: #0d4a1c;
+    --llf-success-background: #f0faf2;
+}
+```
+
+Unticking the box stops the file being enqueued at all, rather than loading it
+and overriding it. The handle is `llf-form`, registered on `wp_enqueue_scripts`,
+so a theme can also `wp_dequeue_style()` it or register its own file under the
+same handle.
+
+The Appearance tab shows a live sample of all three states — drawn by the same
+renderer, with the same wording, that a real form uses, so it cannot quietly
+stop matching what a visitor sees. It is shown whether the styles are on or off:
+knowing what ticking the box would do is the point of looking.
+
+**On update, existing sites get these styles switched on.** A site that has
+already styled its forms may see them change; unticking the box restores exactly
+what was there before.
+
 ## Styling a rejected submission
 
 A submission that fails validation comes back with the answers intact and the
 offending fields marked, so a stylesheet can colour them without any JavaScript.
+These are the classes the built-in styles use, and the ones to target when they
+are switched off.
 
 | Class | On |
 | --- | --- |
@@ -565,6 +631,7 @@ The test reads what is *stored*, so the settings have to be saved first.
 | Tab | What is on it |
 | --- | --- |
 | Delivery | Site-wide defaults for where submissions go. |
+| Appearance | Whether to use the built-in styles, and a sample of what they do. |
 | Spam | Honeypot and minimum completion time. |
 | Google reCAPTCHA v2 | The two keys, links to Google's console, and a live test. |
 | Import / Export | Form definitions as JSON. |

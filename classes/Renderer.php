@@ -67,6 +67,11 @@ class Renderer
             return '<p><em>' . esc_html($message) . '</em></p>';
         }
 
+        // Before the success branch below, which returns early with a notice of
+        // its own — a confirmation that has replaced the form is still one of
+        // the things the stylesheet is for.
+        Styles::enqueue();
+
         $fields = $form['settings']['fields'] ?? [];
 
         $success         = !empty($args['success']);
@@ -136,11 +141,17 @@ class Renderer
     /**
      * Markup for one field.
      *
-     * @param array $field  Normalised definition.
-     * @param mixed $value  Previously submitted value, if redisplaying.
+     * @param array  $field Normalised definition.
+     * @param mixed  $value Previously submitted value, if redisplaying.
      * @param string $error Message for this field, if any.
+     * @param array<string, string> $extra Attributes to add to the input. Only
+     *                                     the settings page uses this, to draw
+     *                                     a sample field with the real renderer
+     *                                     rather than with markup copied out of
+     *                                     it — a sample that can drift is worse
+     *                                     than no sample.
      */
-    public static function field(array $field, $value = null, string $error = ''): string
+    public static function field(array $field, $value = null, string $error = '', array $extra = []): string
     {
         $name  = (string) $field['name'];
         $label = Strings::get((string) $field['label'], (string) ($field['translation_key'] ?? ''));
@@ -187,6 +198,9 @@ class Renderer
         if ('regex' === ($field['validation'] ?? '') && '' !== (string) $field['pattern']) {
             $attrs['pattern'] = (string) $field['pattern'];
         }
+
+        // Last, so a caller can override anything worked out above.
+        $attrs = array_merge($attrs, $extra);
 
         $out = '<p class="llf-field llf-field--' . esc_attr($type) . ($error ? ' llf-field--error' : '') . '">';
 

@@ -221,6 +221,22 @@ class Tests
             'button reads "' . FormBuilder::defaultSubmitLabel() . '"',
             false !== strpos($html, '>' . FormBuilder::defaultSubmitLabel() . '<')
         );
+
+        self::title(__('The stylesheet is where the plugin says it is', 'lonsda-light-form'));
+        // Enqueuing a file that is not there fails silently, and looks from the
+        // outside exactly like a theme overriding it.
+        self::assert(
+            'assets/css/form.css',
+            is_readable(LLF_DIR . 'assets/css/form.css')
+        );
+
+        self::title(__('Rendering a form asks for the styles', 'lonsda-light-form'));
+        // Only when a form is on the page: a stylesheet on every page of a site
+        // for the sake of the one page with a contact form is a poor trade.
+        self::assert(
+            Styles::enabled() ? 'enqueued for this page' : 'switched off, so not enqueued',
+            wp_style_is(Styles::HANDLE, 'enqueued') === Styles::enabled()
+        );
     }
 
     private static function submissionScenario(): void
@@ -291,6 +307,25 @@ class Tests
         self::title(__('A stale nonce is refused', 'lonsda-light-form'));
         $stale = self::submit($form_id, ['email' => 'tester@example.com', 'consent' => '1'], ['nonce' => 'not-a-nonce']);
         self::assert('refused, and nothing was accepted', empty($stale['success']), $stale);
+
+        self::title(__('But the answers survive it', 'lonsda-light-form'));
+        // A form open longer than the nonce lives is the visitor's bad luck,
+        // not their mistake, and losing a long message to it is the worst thing
+        // this form can do to somebody.
+        self::assert(
+            'answers handed back to the form',
+            'tester@example.com' === ($stale['values']['email'] ?? null)
+                && true === ($stale['values']['consent'] ?? null),
+            $stale['values'] ?? []
+        );
+
+        self::title(__('And they come back in the redisplayed form', 'lonsda-light-form'));
+        $again = Renderer::form($form_id, ['values' => $stale['values'], 'notice' => $stale['notice']]);
+        self::assert(
+            'value attribute refilled',
+            false !== strpos($again, 'value="tester@example.com"'),
+            wp_strip_all_tags($again)
+        );
 
         self::title(__('A filled honeypot is refused', 'lonsda-light-form'));
         $bot = self::submit(
@@ -391,6 +426,20 @@ class Tests
             'only the rejected field carries it',
             1 === substr_count($html, 'llf-input--error')
                 && false !== strpos($html, 'llf[code]')
+        );
+
+        self::title(__('Every answer comes back, not only the rejected one', 'lonsda-light-form'));
+        // The point of redisplaying at all: one field being wrong is no reason
+        // to make somebody type the other four again.
+        self::assert(
+            'text, the rejected value and the ticked box all refilled',
+            self::hasAll($html, [
+                'value="AB1234"',
+                'value="okay"',
+                'value="not-an-email"',
+                'checked=\'checked\'',
+            ]),
+            wp_strip_all_tags($html)
         );
 
         self::title(__('Another listener can add errors of its own', 'lonsda-light-form'));
@@ -640,9 +689,12 @@ class Tests
         self::submit($form_id, ['email' => 'named@example.com', 'message' => 'Placeholder body']);
         $mail = $sent[0] ?? [];
 
+        // Both halves: the field answer and a built-in. Asserting only the
+        // start of the subject would pass with {site_name} still sitting there
+        // unreplaced, which is exactly the way this fails in practice.
         self::assert(
             (string) ($mail['subject'] ?? ''),
-            false !== strpos((string) ($mail['subject'] ?? ''), 'From named@example.com via')
+            'From named@example.com via ' . get_bloginfo('name') === (string) ($mail['subject'] ?? '')
         );
 
         self::title(__('And in the message', 'lonsda-light-form'));
@@ -650,6 +702,24 @@ class Tests
             'the field answer was substituted',
             false !== strpos((string) ($mail['message'] ?? ''), 'Placeholder body')
         );
+
+        self::title(__('An unknown placeholder is left alone rather than emptied', 'lonsda-light-form'));
+        // {site-name} is not {site_name}, and only the second is a placeholder.
+        // Nothing invents a replacement for one that does not exist, so a typo
+        // arrives in the mail as itself rather than silently as a blank — which
+        // is the difference between noticing it and not.
+        carbon_set_post_meta($post_id, 'llf_notify_subject', 'Sent by {site-name}');
+        Forms::syncToTable($post_id, get_post($post_id));
+
+        $sent = [];
+        self::submit($form_id, ['email' => 'named@example.com', 'message' => 'Placeholder body']);
+        self::assert(
+            (string) ($sent[0]['subject'] ?? ''),
+            'Sent by {site-name}' === (string) ($sent[0]['subject'] ?? '')
+        );
+
+        carbon_set_post_meta($post_id, 'llf_notify_subject', 'From {email} via {site_name}');
+        Forms::syncToTable($post_id, get_post($post_id));
 
         self::title(__('{submission_details} leaves out what it does not have', 'lonsda-light-form'));
         // The reason the default body can be one translatable string: the part

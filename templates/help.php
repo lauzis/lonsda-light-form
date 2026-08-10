@@ -468,9 +468,23 @@ $llf_settings_url    = admin_url('admin.php?page=' . LLF_SLUG . '-settings');
         <?php esc_html_e('The notification to you is not switched this way. It goes out in whatever language the site was serving, on the grounds that it is read by whoever runs the site rather than by the visitor.', 'lonsda-light-form'); ?>
     </p>
 
+    <h2><?php esc_html_e('Styles', 'lonsda-light-form'); ?></h2>
+    <p style="max-width:860px;">
+        <?php esc_html_e('The plugin brings a small stylesheet of its own, switched on under Settings → Appearance, and loaded only on pages that actually have a form. It covers three things and nothing else: the confirmation, the failure message, and a field that came back rejected. How the inputs and the button look stays the theme\'s business.', 'lonsda-light-form'); ?>
+    </p>
+    <p style="max-width:860px;">
+        <?php esc_html_e('That split is deliberate. A theme has an opinion about a text box, and a plugin arguing with it is a nuisance; what no theme has ever seen is the markup that only appears after a submission — which is why, without this, a rejected field looked exactly like a correct one at the very moment the form had something to tell somebody.', 'lonsda-light-form'); ?>
+    </p>
+    <p style="max-width:860px;">
+        <?php esc_html_e('The Appearance tab shows a live sample of all three, drawn by the same code a real form is drawn with. Untick the box and the stylesheet is not loaded at all, leaving the classes below for a theme to style as it likes. Existing sites get the styles switched on when they update, so if your forms suddenly look different, that box is why.', 'lonsda-light-form'); ?>
+    </p>
+
     <h2><?php esc_html_e('Styling a rejected submission', 'lonsda-light-form'); ?></h2>
     <p style="max-width:860px;">
         <?php esc_html_e('When a submission is rejected the form comes back with the answers still in it and the offending fields marked, so a theme can colour them with CSS alone.', 'lonsda-light-form'); ?>
+    </p>
+    <p style="max-width:860px;">
+        <?php esc_html_e('That holds whatever the reason. A field that failed validation, a tripped spam check, or a form left open so long that it had to be sent again — in every case the visitor gets their answers back rather than an empty form, and only a submission that actually went through clears them. A form sent again after sitting open too long carries a fresh nonce, so the second attempt works.', 'lonsda-light-form'); ?>
     </p>
     <table class="widefat striped" style="max-width:860px;margin-bottom:12px;">
         <tbody>

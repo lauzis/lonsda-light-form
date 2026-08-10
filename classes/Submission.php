@@ -89,14 +89,32 @@ class Submission
             return;
         }
 
+        $fields = $form['settings']['fields'] ?? [];
+
+        // Read before the nonce is checked rather than after, so a form that
+        // expired can be handed back with the answers still in it. A nonce ages
+        // out after half a day, and a page can sit open longer than that or be
+        // served from a cache older still; losing a long message to it and
+        // being told to try again is the worst thing this form does.
+        //
+        // These are unverified at this point, which is why they are sanitised
+        // the same way whatever happens next, and why the renderer escapes
+        // every one of them again on the way out. What comes back is a form to
+        // press send on, not content the page has taken on trust.
+        $values = self::values($fields);
+        $errors = [];
+
         $nonce = isset($_POST['llf_nonce']) ? sanitize_text_field(wp_unslash($_POST['llf_nonce'])) : '';
 
         if (!wp_verify_nonce($nonce, 'llf_submit_' . $form_id)) {
             self::$result = [
                 'form_id' => $form_id,
                 'errors'  => [],
-                'values'  => [],
-                'notice'  => __('That form had expired. Please try again.', 'lonsda-light-form'),
+                'values'  => $values,
+                // Says what to do next, and that nothing was lost doing it. The
+                // form redisplays with a nonce of its own, so pressing send
+                // again works rather than failing the same way.
+                'notice'  => __('That form had been open too long to send, so nothing was sent. Your answers are still here — please send it again.', 'lonsda-light-form'),
                 'success' => false,
             ];
 
@@ -105,28 +123,11 @@ class Submission
             return;
         }
 
-        $raw    = isset($_POST['llf']) && is_array($_POST['llf']) ? wp_unslash($_POST['llf']) : [];
-        $fields = $form['settings']['fields'] ?? [];
-        $values = [];
-        $errors = [];
-
         foreach ($fields as $field) {
-            $name  = $field['name'];
-            $given = $raw[$name] ?? null;
-
-            if ('checkbox' === $field['type']) {
-                $value = (bool) $given;
-            } elseif ('textarea' === $field['type']) {
-                $value = sanitize_textarea_field((string) $given);
-            } else {
-                $value = sanitize_text_field((string) $given);
-            }
-
-            $values[$name] = $value;
-            $error         = self::validate($field, $value);
+            $error = self::validate($field, $values[$field['name']] ?? '');
 
             if ('' !== $error) {
-                $errors[$name] = $error;
+                $errors[$field['name']] = $error;
             }
         }
 
@@ -188,6 +189,41 @@ class Submission
             'notice'  => __('Thank you — your message has been sent.', 'lonsda-light-form'),
             'success' => true,
         ];
+    }
+
+    /**
+     * The submitted answers, sanitised by what each field is.
+     *
+     * Every field of the form gets an entry, whether or not anything was sent
+     * for it: the form is redisplayed from this, and a field left out here
+     * would come back empty for a visitor who did fill it in.
+     *
+     * Fields the form does not have are dropped rather than carried along. The
+     * only thing reading this is the form itself, and a submission naming an
+     * input that does not exist is not answering a question anyone asked.
+     *
+     * @param array $fields Normalised field definitions.
+     * @return array Field name => value; bool for a checkbox, string otherwise.
+     */
+    private static function values(array $fields): array
+    {
+        $raw    = isset($_POST['llf']) && is_array($_POST['llf']) ? wp_unslash($_POST['llf']) : [];
+        $values = [];
+
+        foreach ($fields as $field) {
+            $name  = (string) $field['name'];
+            $given = $raw[$name] ?? null;
+
+            if ('checkbox' === $field['type']) {
+                $values[$name] = (bool) $given;
+            } elseif ('textarea' === $field['type']) {
+                $values[$name] = sanitize_textarea_field((string) $given);
+            } else {
+                $values[$name] = sanitize_text_field((string) $given);
+            }
+        }
+
+        return $values;
     }
 
     /**

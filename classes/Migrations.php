@@ -41,6 +41,9 @@ class Migrations
         $runner->add('0.15.0', [self::class, 'reprojectForms']);
         // Gives every existing form a text id and the keys derived from it.
         $runner->add('0.17.0', [self::class, 'reprojectForms']);
+        // And a key for the title, which is read out in every email the form
+        // sends and until now went out in whatever language it was written in.
+        $runner->add('0.24.0', [self::class, 'reprojectForms']);
 
         return $runner;
     }

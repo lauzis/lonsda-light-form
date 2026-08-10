@@ -102,6 +102,12 @@ class Translations
     /** Which group a form-level key belongs to. */
     private static function groupForKey(string $keyName): string
     {
+        // With the fields and the button: it names the form rather than being
+        // something the form says, and a heading over one row is furniture.
+        if ('title_key' === $keyName) {
+            return self::GROUP_FIELDS;
+        }
+
         if (0 === strpos($keyName, 'auto_reply')) {
             return self::GROUP_AUTO_REPLY;
         }
@@ -378,7 +384,7 @@ class Translations
             // The form's own wording — confirmation, notification, auto reply.
             // Keyed by the form's text id rather than shared, because two forms
             // saying "Thank you" may well want to say it differently.
-            foreach (Strings::formStrings($settings) as $keyName => $pair) {
+            foreach (Strings::formStrings($settings, $title) as $keyName => $pair) {
                 self::collect($strings, $pair['key'], $pair['text'], $title, self::groupForKey($keyName));
             }
         }

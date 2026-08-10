@@ -997,7 +997,7 @@ class Tests
         carbon_set_post_meta($post_id, 'llf_notify_subject', 'From {sender_name} via {site_name}');
         carbon_set_post_meta($post_id, 'llf_auto_reply', true);
         carbon_set_post_meta($post_id, 'llf_auto_reply_subject', 'Thank you {sender_name} — {site_name}');
-        carbon_set_post_meta($post_id, 'llf_auto_reply_message', '<p>Hello {sender_name}.</p>{all_fields}');
+        carbon_set_post_meta($post_id, 'llf_auto_reply_message', '<p>Hello {sender_name}, this is {form_title}.</p>{all_fields}');
         Forms::syncToTable($post_id, get_post($post_id));
 
         $notified = [];
@@ -1045,6 +1045,13 @@ class Tests
             false === strpos($everything, '{')
         );
 
+        self::title(__('The form\'s own title is one of the tokens', 'lonsda-light-form'));
+        $title = (string) (Forms::get($form_id)['title'] ?? '');
+        self::assert(
+            $title,
+            false !== strpos((string) ($replied[0]['message'] ?? ''), 'this is ' . $title)
+        );
+
         self::title(__('{all_fields} carries the labels, the answers and the words between', 'lonsda-light-form'));
         self::assert(
             'label, answer, a ticked box as a word, an empty field named as such',
@@ -1072,7 +1079,10 @@ class Tests
             // last. Substituting before translating would make this impossible,
             // and nothing else in the suite would notice.
             (string) $settings['auto_reply_subject_key']  => '{site_name}: paldies, {sender_name}',
-            (string) $settings['auto_reply_message_key']  => '<p>Sveiki, {sender_name}!</p>{all_fields}',
+            (string) $settings['auto_reply_message_key']  => '<p>Sveiki, {sender_name}! Šī ir {form_title}.</p>{all_fields}',
+
+            // The form's own name, which is read out in every mail it sends.
+            (string) $settings['title_key'] => 'Kontakti',
             (string) $settings['notify_subject_key']      => '{site_name}: ziņa no {sender_name}',
 
             'general__word_yes'          => 'Jā',
@@ -1110,6 +1120,16 @@ class Tests
         self::assert(
             'translated labels, and a ticked box as a translated word',
             self::hasAll((string) ($replied[0]['message'] ?? ''), ['Sveiki, Anna', 'Vārds:', 'Piekrišana:', 'Jā', '(nav atbildēts)'])
+        );
+
+        self::title(__('Including the title, which is a string like any other', 'lonsda-light-form'));
+        // It is the post's title rather than one of the form's settings, which
+        // is exactly why it was the one that stayed in English: a Latvian
+        // subject line with the word Contacts in the middle of it.
+        self::assert(
+            'translated title in, English title out',
+            false !== strpos((string) ($replied[0]['message'] ?? ''), 'Šī ir Kontakti')
+                && false === strpos((string) ($replied[0]['message'] ?? ''), $title)
         );
 
         self::title(__('The notification stays in the language of the request', 'lonsda-light-form'));

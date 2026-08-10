@@ -64,7 +64,7 @@ site needed.
 - **Translations** — labels and buttons carry keys, translated in the browser or through `.po`/`.mo` files, with WPML supported directly.
 - **Spam** — honeypot, minimum completion time, and optional per-form reCAPTCHA v2 with a test on the settings page.
 - **Import and export** — form definitions as JSON, all or a selection.
-- **Self tests** — eight scenarios, 81 assertions, run against the live install and cleaning up after themselves.
+- **Self tests** — ten scenarios, around 145 assertions, run against the live install and cleaning up after themselves.
 - **Hooks** — every submission is handed on with consistent metadata, so a theme can do anything this does not.
 
 ## Building a form
@@ -334,10 +334,17 @@ two fields both labelled `Email` rarely do.
 The prefix is the form's **Text ID**, on the Fields tab:
 
 ```
+contact-form__form_title
 contact-form__success_message
 contact-form__notification_subject     contact-form__notification_message
 contact-form__auto_reply_subject       contact-form__auto_reply_message
 ```
+
+The title is in that list because `{form_title}` puts it in front of whoever
+the mail is addressed to. It is the post's title rather than one of the form's
+settings, which is how it stayed English while everything around it was
+translated — a Latvian subject line with the word *Contacts* in the middle of
+it.
 
 Lower case, dashes for spaces, accents folded — anything else typed into the box
 is converted to that on save, so the field agrees with the keys rather than

@@ -157,7 +157,7 @@ class Strings
      *
      * @param array $settings Stored form definition.
      */
-    public static function register(array $settings): void
+    public static function register(array $settings, string $title = ''): void
     {
         // Alongside the form's own, rather than on a hook of their own: these
         // never change, registering the same string twice costs nothing, and
@@ -177,7 +177,7 @@ class Strings
             (string) ($settings['submit_label'] ?? '') ?: FormBuilder::defaultSubmitLabel()
         );
 
-        foreach (self::formStrings($settings) as $pair) {
+        foreach (self::formStrings($settings, $title) as $pair) {
             self::registerOne($pair['key'], $pair['text']);
         }
     }
@@ -196,9 +196,21 @@ class Strings
      * @param array $settings Stored form definition.
      * @return array<string, array{key: string, text: string}>
      */
-    public static function formStrings(array $settings): array
+    public static function formStrings(array $settings, string $title = ''): array
     {
         $strings = [];
+
+        // First, and not read from the settings like the rest: the title
+        // belongs to the post rather than to the projection, so whoever has it
+        // to hand passes it in. It is here at all because {form_title} puts it
+        // in front of whoever the mail is addressed to, and a form called
+        // Contacts should not say Contacts in the middle of a Latvian sentence.
+        $titleKey = (string) ($settings['title_key'] ?? '');
+        $title    = trim($title);
+
+        if ('' !== $titleKey && '' !== $title) {
+            $strings['title_key'] = ['key' => $titleKey, 'text' => $title];
+        }
 
         $pairs = [
             'success_key'            => ['success_message', [FormBuilder::class, 'defaultSuccessMessage']],

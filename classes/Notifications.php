@@ -181,7 +181,12 @@ class Notifications
 
         $tokens['{all_fields}']         = self::fieldList($values, $form);
         $tokens['{submission_details}'] = self::details($context);
-        $tokens['{form_title}']   = (string) ($form['title'] ?? '');
+        // Translated, not taken raw: this one is written into a message that
+        // may well be going out in a language the title was never in.
+        $tokens['{form_title}']   = Strings::get(
+            (string) ($form['title'] ?? ''),
+            (string) ($form['settings']['title_key'] ?? '')
+        );
         $tokens['{site_name}']    = (string) get_bloginfo('name');
         $tokens['{site_url}']     = home_url();
         $tokens['{submitted_at}'] = (string) ($context['submitted_at'] ?? '');

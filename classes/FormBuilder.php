@@ -531,6 +531,10 @@ class FormBuilder
             'submit_key'      => $submitKey,
             // Keys for the form's own wording, so whatever renders or sends it
             // does not have to know how they are put together.
+            // The title is the post's rather than one of these settings, but it
+            // is read out in every email the form sends, so it is translated
+            // the same way the rest of the form's wording is.
+            'title_key'            => self::formStringKey($textId, 'form_title'),
             'success_key'          => self::formStringKey($textId, 'success_message'),
             'notify_subject_key'   => self::formStringKey($textId, 'notification_subject'),
             'notify_message_key'   => self::formStringKey($textId, 'notification_message'),

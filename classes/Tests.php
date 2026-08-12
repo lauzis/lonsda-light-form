@@ -893,32 +893,22 @@ class Tests
         self::title(__('A translated auto reply is the one that goes out', 'lonsda-light-form'));
         // The whole point of keying these to the form: a visitor writing in
         // one language should not be answered in another.
+        //
+        // The language is put on the submission rather than by loading the
+        // translation file by hand. Hand-loading was how this read until the
+        // reply started switching language for itself, and the two fought: the
+        // switch reloads the file for the language the submission records, so
+        // whatever the test had loaded was replaced a moment later and the
+        // reply came out in English. It only showed up on a site whose admin
+        // screen is in a different language from the submission — everywhere
+        // else the switch finds nothing to do and leaves the hand-loaded file
+        // alone.
         $settings = Forms::get($form_id)['settings'];
         Translations::save(self::TEST_LOCALE, [
             (string) $settings['auto_reply_subject_key'] => 'Paldies, {sender_name}',
             (string) $settings['auto_reply_message_key'] => '<p>Paldies par ziņu.</p>',
         ]);
 
-        $sent = [];
-        unload_textdomain(Translations::DOMAIN);
-        load_textdomain(Translations::DOMAIN, Translations::path(self::TEST_LOCALE));
-        self::submit($form_id, ['email' => 'visitor@example.com', 'sender_name' => 'Anna']);
-        unload_textdomain(Translations::DOMAIN);
-        Translations::load();
-
-        $translated = $sent[0] ?? [];
-        self::assert(
-            (string) ($translated['subject'] ?? ''),
-            'Paldies, Anna' === ($translated['subject'] ?? '')
-                && false !== strpos((string) ($translated['message'] ?? ''), 'Paldies par ziņu'),
-            $translated
-        );
-
-        self::title(__('The language recorded with the submission is the one it is answered in', 'lonsda-light-form'));
-        // The same translation, but nothing loads it by hand this time: the
-        // language is only in the submission's metadata, which is where it has
-        // to be read from for a reply sent from anywhere but the page it was
-        // submitted on.
         $sent    = [];
         $relabel = static function ($context) {
             $context['locale']   = self::TEST_LOCALE;
@@ -931,12 +921,12 @@ class Tests
         self::submit($form_id, ['email' => 'visitor@example.com', 'sender_name' => 'Anna']);
         remove_filter(Submission::FILTER_CONTEXT, $relabel, 10);
 
-        $byContext = $sent[0] ?? [];
+        $translated = $sent[0] ?? [];
         self::assert(
-            (string) ($byContext['subject'] ?? ''),
-            'Paldies, Anna' === ($byContext['subject'] ?? '')
-                && false !== strpos((string) ($byContext['message'] ?? ''), 'Paldies par ziņu'),
-            $byContext
+            (string) ($translated['subject'] ?? ''),
+            'Paldies, Anna' === ($translated['subject'] ?? '')
+                && false !== strpos((string) ($translated['message'] ?? ''), 'Paldies par ziņu'),
+            $translated
         );
 
         self::title(__('And the language is put back afterwards', 'lonsda-light-form'));

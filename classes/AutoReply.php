@@ -89,9 +89,19 @@ class AutoReply
         }
 
         if ($sent) {
+            // The language, and whether there was anything to translate it
+            // with — the two facts behind almost every "why did this arrive in
+            // English". Not the message: that one is written to a visitor
+            // about something they said, and a log is not the place for it.
+            $locale = (string) ($context['locale'] ?? '');
+
             Logs::add('auto-reply', 'Auto reply sent.', [
-                'form' => $form['id'] ?? null,
-                'to'   => $mail['to'],
+                'form'    => $form['id'] ?? null,
+                'to'      => $mail['to'],
+                'locale'  => $locale,
+                'strings' => '' !== $locale && is_readable(Translations::path($locale))
+                    ? 'translation file present'
+                    : 'no translation file',
             ]);
 
             return;

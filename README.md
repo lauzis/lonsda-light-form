@@ -698,7 +698,17 @@ The settings page is rendered by the shared package from `config/settings.json`,
 so it looks and behaves like every other plugin in this account.
 
 **Lonsda Forms → Logs** shows what was recorded: the days covered, the most
-recent entries newest first, and a button to clear them. The menu entry appears
+recent entries newest first, and a button to clear them.
+
+A **test** send is logged with the message itself — subject, body, headers, the
+language it went out in, and whether there was a translation file for that
+language at all. That is the one send where logging the whole thing is right:
+the answers in it are invented, an administrator asked for it deliberately, and
+the reason to press the button is usually to find out why what arrives is not
+what was expected. A real submission is logged without its contents — that is
+somebody's message. The auto reply records the language it used and whether a
+translation file existed, which is what lies behind almost every "why did this
+arrive in English", and nothing of what it said. The menu entry appears
 once there is something to read and stays while old files remain — switching
 logging off should not take away the log you switched it on to get.
 

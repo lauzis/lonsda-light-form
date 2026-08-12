@@ -106,14 +106,41 @@ class TestMail
         }
 
         if (null === $captured) {
+            // Logged as well as reported: "nothing happened" is the hardest
+            // outcome to chase afterwards, and the reason is known here.
+            Logs::add('test-mail', 'Test email produced nothing.', [
+                'form'   => $form_id,
+                'kind'   => $which,
+                'reason' => wp_strip_all_tags(self::whyNothingWasSent($which, $form)),
+            ]);
+
             return self::fail(self::whyNothingWasSent($which, $form));
         }
 
+        $used = '' === $locale ? determine_locale() : $locale;
+
+        // The message itself, not just that one went. A test send is the one
+        // place where logging the whole thing is right: the answers in it are
+        // invented, an administrator asked for it deliberately, and the reason
+        // to press the button at all is usually to find out why what arrives is
+        // not what was expected. A real submission is logged without its
+        // contents — that is somebody's message, and a log is not the place
+        // for it.
         Logs::add('test-mail', 'Test email sent.', [
-            'form'   => $form_id,
-            'kind'   => $which,
-            'to'     => $to,
-            'locale' => $locale ?: 'site default',
+            'form'    => $form_id,
+            'kind'    => $which,
+            'to'      => $to,
+            'locale'  => $used,
+            // Answers the question the subject line usually raises next: an
+            // English subject with no file to translate it is a translation
+            // nobody has written, and an English subject with a file present
+            // is something else entirely.
+            'strings' => is_readable(Translations::path($used))
+                ? 'translation file present for ' . $used
+                : 'no translation file for ' . $used,
+            'subject' => (string) ($captured['subject'] ?? ''),
+            'message' => (string) ($captured['message'] ?? ''),
+            'headers' => (array) ($captured['headers'] ?? []),
         ]);
 
         return [

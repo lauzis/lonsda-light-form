@@ -50,6 +50,61 @@ class Tests
         ];
     }
 
+    /**
+     * Writes a translation, and stops the run if it did not land.
+     *
+     * Every scenario that tests a translation begins by writing one, and a
+     * write that quietly failed looks from every assertion afterwards exactly
+     * like a translation layer that does not work — several failures, none of
+     * them naming the directory nobody could write to. So the write is checked
+     * where it happens, and says which of the two it was.
+     *
+     * @param array<string, string> $pairs Translation key => translated text.
+     */
+    private static function translate(array $pairs): bool
+    {
+        $result = Translations::save(self::TEST_LOCALE, $pairs);
+
+        if (is_wp_error($result)) {
+            self::title(__('Writing the test translation', 'lonsda-light-form'));
+            self::assert($result->get_error_message(), false, ['keys' => array_keys($pairs)]);
+
+            return false;
+        }
+
+        $path = Translations::path(self::TEST_LOCALE);
+
+        if (!is_readable($path)) {
+            self::title(__('Writing the test translation', 'lonsda-light-form'));
+            self::assert(
+                sprintf('saved, but %s is not there to read', $path),
+                false,
+                ['dir' => Translations::directory(), 'keys' => array_keys($pairs)]
+            );
+
+            return false;
+        }
+
+        // Written but empty of what was asked for: the keys given do not exist
+        // among the strings the site has, so save() dropped them. That is a
+        // test setting up something the plugin does not agree exists, and is
+        // worth saying so rather than failing three assertions later.
+        $missing = array_diff(array_keys($pairs), array_keys(Translations::existing(self::TEST_LOCALE)));
+
+        if ($missing) {
+            self::title(__('Writing the test translation', 'lonsda-light-form'));
+            self::assert(
+                'these keys were dropped as unknown: ' . implode(', ', $missing),
+                false,
+                ['known' => array_slice(array_keys(Translations::strings()), 0, 20)]
+            );
+
+            return false;
+        }
+
+        return true;
+    }
+
     /** Runs one scenario, having checked the caller is allowed to. */
     public static function run(string $scenario): void
     {
@@ -904,7 +959,7 @@ class Tests
         // else the switch finds nothing to do and leaves the hand-loaded file
         // alone.
         $settings = Forms::get($form_id)['settings'];
-        Translations::save(self::TEST_LOCALE, [
+        self::translate([
             (string) $settings['auto_reply_subject_key'] => 'Paldies, {sender_name}',
             (string) $settings['auto_reply_message_key'] => '<p>Paldies par ziņu.</p>',
         ]);
@@ -1056,7 +1111,7 @@ class Tests
             $keys[$field['name']] = (string) $field['translation_key'];
         }
 
-        Translations::save(self::TEST_LOCALE, [
+        self::translate([
             $keys['email']       => 'E-pasts',
             $keys['sender_name'] => 'Vārds',
             $keys['nickname']    => 'Segvārds',
@@ -1196,7 +1251,7 @@ class Tests
         self::title(__('A token that does not exist is left alone, even in a translation', 'lonsda-light-form'));
         // {site-name} is not {site_name}. It arrives as itself rather than as a
         // blank, which is the difference between seeing the mistake and not.
-        Translations::save(self::TEST_LOCALE, [
+        self::translate([
             (string) $settings['auto_reply_subject_key'] => 'Sveiki no {site-name}',
         ]);
 
@@ -1268,9 +1323,21 @@ class Tests
         self::assert((string) ($mail['subject'] ?? ''), 0 === strpos((string) ($mail['subject'] ?? ''), '[TEST]'));
 
         self::title(__('The answers are filled in, not left blank', 'lonsda-light-form'));
+        // The answers and the shape of the list, not the label text. Labels are
+        // translated now, and a field key is shared by every form that has a
+        // field of that name — so on a site that has translated its own Email
+        // label, this form's Email label is translated too, and asserting the
+        // English word here failed for a reason that has nothing to do with
+        // whether the test email was filled in.
+        $body = (string) ($mail['message'] ?? '');
         self::assert(
-            'sample answers present',
-            self::hasAll((string) ($mail['message'] ?? ''), ['<strong>Email:</strong>', '<strong>Message:</strong>', 'tester@example.com'])
+            'sample answers present, one labelled block per field',
+            2 === substr_count($body, '<strong>')
+                && false !== strpos($body, 'tester@example.com')
+                // The textarea's sample answer is itself a translatable
+                // string, so its shape is what can be asserted: two lines.
+                && false !== strpos($body, '<br />'),
+            wp_strip_all_tags($body)
         );
 
         self::title(__('Nothing is stored as an entry', 'lonsda-light-form'));
@@ -1283,7 +1350,7 @@ class Tests
         Forms::syncToTable($post_id, get_post($post_id));
 
         $settings = Forms::get($form_id)['settings'];
-        Translations::save(self::TEST_LOCALE, [
+        self::translate([
             (string) $settings['notify_subject_key'] => 'Jauna ziņa',
         ]);
 
@@ -1371,7 +1438,7 @@ class Tests
         );
 
         self::title(__('A translated placeholder reaches the rendered input', 'lonsda-light-form'));
-        Translations::save(self::TEST_LOCALE, [$withPlaceholder => 'piem. Anna']);
+        self::translate([$withPlaceholder => 'piem. Anna']);
         unload_textdomain(Translations::DOMAIN);
         load_textdomain(Translations::DOMAIN, Translations::path(self::TEST_LOCALE));
         $html = Renderer::form($form_id);
@@ -1412,7 +1479,7 @@ class Tests
         self::title(__('And translating one changes what a visitor is told', 'lonsda-light-form'));
         // The whole point of listing them: these used to be reachable only by
         // editing a .po inside a folder WordPress replaces on every update.
-        Translations::save(self::TEST_LOCALE, ['general__error_required' => 'Šis lauks ir obligāts.']);
+        self::translate(['general__error_required' => 'Šis lauks ir obligāts.']);
 
         unload_textdomain(Translations::DOMAIN);
         load_textdomain(Translations::DOMAIN, Translations::path(self::TEST_LOCALE));
@@ -1558,7 +1625,7 @@ class Tests
         );
 
         self::title(__('A second save keeps what it was not shown', 'lonsda-light-form'));
-        Translations::save(self::TEST_LOCALE, [$other => 'Ziņa']);
+        self::translate([$other => 'Ziņa']);
         $now = Translations::existing(self::TEST_LOCALE);
         self::assert(
             'both survive',

@@ -84,7 +84,7 @@ class Renderer
                 $success_message = FormBuilder::defaultSuccessMessage();
             }
 
-            $success_message = Strings::get(
+            $success_message = Strings::html(
                 $success_message,
                 (string) ($form['settings']['success_key'] ?? '')
             );

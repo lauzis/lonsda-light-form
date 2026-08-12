@@ -229,21 +229,24 @@ class Notifications
     private static function message(array $settings, array $tokens): string
     {
         $template = trim((string) ($settings['notify_message'] ?? ''));
-        $written  = '' !== $template;
 
-        if (!$written) {
+        if ('' === $template) {
             $template = FormBuilder::defaultNotificationMessage();
         }
 
-        $body = self::replace(
-            Strings::get($template, (string) ($settings['notify_message_key'] ?? '')),
-            $tokens
-        );
+        $template = Strings::get($template, (string) ($settings['notify_message_key'] ?? ''));
+        $body     = self::replace($template, $tokens);
 
-        // wpautop only for a hand-written one: that box is a plain textarea and
-        // whoever pressed Enter meant it. The shipped default is already marked
-        // up, and running it through would add empty paragraphs.
-        return $written ? wpautop($body) : $body;
+        // Paragraphed when the wording arrived without any of its own, which is
+        // a wider rule than the one this used to apply: a hand-written body is
+        // plain text and wants it, and so does a translation, which is typed
+        // into a box that holds no markup either.
+        //
+        // Judged on the template and applied to the result: {all_fields} brings
+        // blocks of its own, so judging the result would make every message
+        // look marked up, and paragraphing the template would wrap those blocks
+        // in a paragraph of ours.
+        return Strings::hasBlocks($template) ? $body : wpautop($body);
     }
 
     /**

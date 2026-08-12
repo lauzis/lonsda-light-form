@@ -126,12 +126,32 @@ $llf_base      = admin_url('admin.php?page=' . LLF_SLUG . '-translations');
                     <tbody>
                         <?php foreach ($llf_rows as $llf_key => $llf_entry) : ?>
                             <tr>
-                                <td><strong><?php echo esc_html($llf_entry['text']); ?></strong></td>
                                 <td>
-                                    <input type="text" class="large-text"
-                                           name="llf_tr[<?php echo esc_attr($llf_key); ?>]"
-                                           value="<?php echo esc_attr($llf_existing[$llf_key] ?? ''); ?>"
-                                           placeholder="<?php echo esc_attr($llf_entry['text']); ?>">
+                                    <?php if (Translations::isBody($llf_entry['text'])) : ?>
+                                        <div style="white-space:pre-wrap;"><?php echo esc_html($llf_entry['text']); ?></div>
+                                    <?php else : ?>
+                                        <strong><?php echo esc_html($llf_entry['text']); ?></strong>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <?php if (Translations::isBody($llf_entry['text'])) : ?>
+                                        <?php
+                                        // Markup is kept as typed, and a
+                                        // translation written as plain
+                                        // paragraphs is paragraphed on the way
+                                        // out — see Strings::html().
+                                        ?>
+                                        <textarea class="large-text" rows="5"
+                                                  name="llf_tr[<?php echo esc_attr($llf_key); ?>]"
+                                                  placeholder="<?php echo esc_attr($llf_entry['text']); ?>"><?php
+                                            echo esc_textarea($llf_existing[$llf_key] ?? '');
+                                        ?></textarea>
+                                    <?php else : ?>
+                                        <input type="text" class="large-text"
+                                               name="llf_tr[<?php echo esc_attr($llf_key); ?>]"
+                                               value="<?php echo esc_attr($llf_existing[$llf_key] ?? ''); ?>"
+                                               placeholder="<?php echo esc_attr($llf_entry['text']); ?>">
+                                    <?php endif; ?>
                                 </td>
                                 <td>
                                     <code><?php echo esc_html($llf_key); ?></code><br>

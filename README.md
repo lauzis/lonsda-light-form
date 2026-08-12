@@ -440,6 +440,15 @@ Both a `.mo` and a `.po` are written, so a translation started here can be
 carried on in Poedit or handed to someone else, and one done elsewhere can be
 uploaded back. A `.po` is compiled to `.mo` on the way in, so either will do.
 
+A message body — either email, or the confirmation — gets a textarea rather
+than a one-line box, because that is what it is. It used to get a single line
+like everything else, which meant a translator could not type a paragraph break
+even if they wanted one, and a message written as three paragraphs went out in
+translation as one unbroken block. Markup typed there is kept; a translation
+written as plain paragraphs is run through `wpautop()` on the way out, after the
+placeholders are substituted so that `{all_fields}`, which is paragraphs
+already, is not wrapped in one more.
+
 Saving merges rather than replaces. The editor shows one form at a time, so
 treating a save as "these are all the translations there are" would wipe every
 other form's work. An emptied box removes that translation rather than storing

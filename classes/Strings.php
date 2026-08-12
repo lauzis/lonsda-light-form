@@ -65,6 +65,43 @@ class Strings
     }
 
     /**
+     * The same, for a string that is a body of text rather than a line of one.
+     *
+     * A confirmation and both emails are written in an editor that produces
+     * paragraphs, but their translations are typed into a box on the
+     * translations screen that has never had any markup in it. The result
+     * arrived as one unbroken block — the message somebody wrote as three
+     * paragraphs, run together, in the language most of the site's visitors
+     * read.
+     *
+     * So anything that comes back without block markup is paragraphed. That
+     * covers the translation, and equally a message hand-typed into a plain
+     * textarea: in both cases somebody pressed Enter and meant it. Anything
+     * that already has markup is left exactly as it is, because adding
+     * paragraphs around paragraphs produces empty ones.
+     */
+    public static function html(string $text, string $key): string
+    {
+        $translated = self::get($text, $key);
+
+        return self::hasBlocks($translated) ? $translated : wpautop($translated);
+    }
+
+    /**
+     * Whether a string is already marked up as more than one block.
+     *
+     * Public because a body with placeholders in it cannot use html() above:
+     * the paragraphing has to happen after the tokens are substituted, so that
+     * a token standing for blocks of its own is not wrapped in a paragraph,
+     * while the decision has to be made on the template before they are — see
+     * Notifications::message().
+     */
+    public static function hasBlocks(string $text): bool
+    {
+        return 1 === preg_match('/<(p|br|div|ul|ol|li|h[1-6]|blockquote|table)\b/i', $text);
+    }
+
+    /**
      * The plugin's own wording that a visitor reads.
      *
      * Everything here used to be a plain __() against the plugin's text domain,

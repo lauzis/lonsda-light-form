@@ -142,7 +142,7 @@ class AutoReply
             // Authored in a visual editor, so it goes out as HTML — and through
             // wp_kses_post first, because it is written into an email either
             // way and nothing here needs script or an iframe.
-            'message' => wp_kses_post(self::replace($message, $tokens)),
+            'message' => wp_kses_post(self::paragraphs($message, self::replace($message, $tokens))),
             'headers' => ['Content-Type: text/html; charset=UTF-8'],
         ];
 
@@ -160,6 +160,27 @@ class AutoReply
          * @param array $context Submission metadata.
          */
         return (array) apply_filters(self::FILTER_MAIL, $mail, $values, $form, $context);
+    }
+
+    /**
+     * Paragraphs a body that arrived without any.
+     *
+     * The message is written in an editor that produces paragraphs, but its
+     * translation is typed into a box on the translations screen that holds
+     * plain text — so a reply somebody wrote as three paragraphs went out in
+     * another language as one unbroken block.
+     *
+     * Decided on the template and applied to the result: {all_fields} expands
+     * to blocks of its own, which would make any template look marked up, and
+     * paragraphing before the tokens are in would wrap those blocks in a
+     * paragraph of ours.
+     *
+     * @param string $template Wording as translated, before substitution.
+     * @param string $body     The same after it.
+     */
+    private static function paragraphs(string $template, string $body): string
+    {
+        return Strings::hasBlocks($template) ? $body : wpautop($body);
     }
 
     /**

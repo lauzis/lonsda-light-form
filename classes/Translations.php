@@ -99,6 +99,23 @@ class Translations
         return array_filter($grouped);
     }
 
+    /**
+     * Whether a string is a body of text rather than a line of one.
+     *
+     * Decides what the editor gives a translator to type into. Everything used
+     * to get a one-line input, including the two email bodies and the
+     * confirmation — boxes that cannot hold a paragraph break, so a translated
+     * message arrived as one unbroken block however it was written. A label
+     * still gets a single line: a textarea for the word "Email" invites a
+     * paragraph nobody wants.
+     */
+    public static function isBody(string $text): bool
+    {
+        return false !== strpos($text, "\n")
+            || 1 === preg_match('/<(p|br|div|ul|ol|h[1-6]|blockquote)\b/i', $text)
+            || mb_strlen($text) > 120;
+    }
+
     /** Which group a form-level key belongs to. */
     private static function groupForKey(string $keyName): string
     {

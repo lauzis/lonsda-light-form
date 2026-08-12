@@ -1079,7 +1079,9 @@ class Tests
             // last. Substituting before translating would make this impossible,
             // and nothing else in the suite would notice.
             (string) $settings['auto_reply_subject_key']  => '{site_name}: paldies, {sender_name}',
-            (string) $settings['auto_reply_message_key']  => '<p>Sveiki, {sender_name}! Šī ir {form_title}.</p>{all_fields}',
+            // Plain paragraphs, which is what gets typed into a translation
+            // box — the markup is the editor's, not the translator's.
+            (string) $settings['auto_reply_message_key']  => "Sveiki, {sender_name}!\n\nŠī ir {form_title}.\n\n{all_fields}",
 
             // The form's own name, which is read out in every mail it sends.
             (string) $settings['title_key'] => 'Kontakti',
@@ -1130,6 +1132,36 @@ class Tests
             'translated title in, English title out',
             false !== strpos((string) ($replied[0]['message'] ?? ''), 'Šī ir Kontakti')
                 && false === strpos((string) ($replied[0]['message'] ?? ''), $title)
+        );
+
+        self::title(__('A translation typed as plain paragraphs arrives as paragraphs', 'lonsda-light-form'));
+        // The translation box held no markup for a long time, so a message
+        // written as three paragraphs was translated into one line of text and
+        // arrived as one unbroken block — in the language most of the site's
+        // visitors read, which is the worst half to get wrong.
+        $body = (string) ($replied[0]['message'] ?? '');
+        self::assert(
+            'paragraphs in the html, and blank lines in the text part',
+            substr_count($body, '<p>') >= 2
+                && false !== strpos(Mail::toText($body), "\n\n")
+        );
+
+        self::title(__('Without wrapping a paragraph round the blocks a token brought', 'lonsda-light-form'));
+        // {all_fields} is paragraphs already. Paragraphing before the tokens
+        // were in would have put this message's field list inside one.
+        self::assert(
+            'no nested or empty paragraph',
+            false === strpos($body, '<p><p>') && false === strpos($body, '<p></p>')
+        );
+
+        self::title(__('A body gets a box it can hold a paragraph in', 'lonsda-light-form'));
+        // What the screen offers has to match what the string is: a one-line
+        // input for a message body is how the line above went wrong.
+        self::assert(
+            'bodies get a textarea, labels do not',
+            Translations::isBody('<p>Hello.</p><p>Goodbye.</p>')
+                && Translations::isBody("Two\nlines")
+                && !Translations::isBody('Email')
         );
 
         self::title(__('The notification stays in the language of the request', 'lonsda-light-form'));

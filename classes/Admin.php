@@ -439,29 +439,37 @@ class Admin
     }
 
     /**
-     * The log, on the Logging tab.
+     * The Logs screen.
      *
-     * The listing itself is the shared package's — every plugin here writes the
-     * same log and would otherwise grow its own reader for it. What belongs to
-     * this plugin is whether to show it at all, and the action behind the clear
-     * button, which has to check a capability this plugin decides on.
+     * A page of its own rather than a panel on the settings page: settings are
+     * what the plugin will do, and a log is what it did. The listing itself is
+     * the shared package's — every plugin here writes the same log and would
+     * otherwise grow its own reader for it — while the page, the menu entry and
+     * the capability behind clearing belong to this plugin.
      */
-    public static function logsPanel(): string
+    public static function renderLogs(): void
     {
+        if (!current_user_can('manage_options')) {
+            return;
+        }
+
         $logger = \LonsdaLightForm\Logs::logger();
+
+        echo '<div class="wrap"><h1>' . esc_html__('Lonsda Forms — Logs', 'lonsda-light-form') . '</h1>';
 
         if (!$logger || !class_exists('\Lauzis\WpPackages\Logs\Viewer')) {
             // An older copy of the shared package won the version race — see
-            // WpPackages_Registry. Everything else on this page still works, so
-            // this says what is missing rather than fataling.
-            return '<p class="description">'
-                . esc_html__('The log reader needs a newer copy of the shared package than the one running.', 'lonsda-light-form')
-                . '</p>';
+            // WpPackages_Registry. Said plainly rather than fataling: another
+            // plugin on this site is shipping the copy that won.
+            echo '<p>' . esc_html__('The log reader needs a newer copy of the shared package than the one running.', 'lonsda-light-form') . '</p></div>';
+
+            return;
         }
 
         $viewer = new \Lauzis\WpPackages\Logs\Viewer($logger, ['clear' => 'llf_clear_logs']);
 
-        return $viewer->render();
+        echo $viewer->render(); // Escaped by the viewer, field by field.
+        echo '</div>';
     }
 
     /** Empties the log, from the button on that panel. */
@@ -475,7 +483,7 @@ class Admin
 
         \LonsdaLightForm\Logs::clear();
 
-        wp_safe_redirect(admin_url('admin.php?page=' . LLF_SLUG . '-settings'));
+        wp_safe_redirect(admin_url('admin.php?page=' . LLF_SLUG . '-logs'));
         exit;
     }
 

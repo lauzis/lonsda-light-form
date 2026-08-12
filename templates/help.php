@@ -551,7 +551,7 @@ $llf_settings_url    = admin_url('admin.php?page=' . LLF_SLUG . '-settings');
         <?php
         printf(
             /* translators: %s: link to the settings page */
-            esc_html__('Switch logging on under %s to record what the plugin did — forms saved or deleted, mail sent, schema changes applied. Failures always reach PHP\'s error log regardless of the setting. The log is shown on that same tab: the days it covers, the most recent entries newest first, and a button to clear it. Switching logging off stops new entries without deleting what is there.', 'lonsda-light-form'),
+            esc_html__('Switch logging on under %s to record what the plugin did — forms saved or deleted, mail sent, schema changes applied. Failures always reach PHP\'s error log regardless of the setting. The log itself is read under Lonsda Forms → Logs: the days it covers, the most recent entries newest first, and a button to clear them. That entry appears once there is something to read and stays while old files remain, so switching logging off does not take away what it already caught.', 'lonsda-light-form'),
             '<a href="' . esc_url($llf_settings_url) . '">' . esc_html__('Settings', 'lonsda-light-form') . '</a>'
         );
         ?>

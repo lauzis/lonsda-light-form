@@ -692,18 +692,20 @@ The test reads what is *stored*, so the settings have to be saved first.
 | Spam | Honeypot and minimum completion time. |
 | Google reCAPTCHA v2 | The two keys, links to Google's console, and a live test. |
 | Import / Export | Form definitions as JSON. |
-| Logging | Whether the plugin keeps a log, and the log itself — the days it covers and the most recent entries, with a button to clear it. |
+| Logging | Whether the plugin keeps a log, shared with the other plugins here. The log itself is a screen of its own — settings are what the plugin will do, a log is what it did. |
 
 The settings page is rendered by the shared package from `config/settings.json`,
 so it looks and behaves like every other plugin in this account.
 
-The log viewer is split the same way the rest is: reading, listing and clearing
-are the shared package's `Logs\Viewer`, because every plugin here writes the
-same log and would otherwise grow its own reader for it, while *whether the
-panel appears at all* is this plugin's — it owns its settings page and the
-capability behind the clear button. `config/logs.json` adds the panel to the
-`logging` section the package declares, which is why they share a tab rather
-than producing two called Logging.
+**Lonsda Forms → Logs** shows what was recorded: the days covered, the most
+recent entries newest first, and a button to clear them. The menu entry appears
+once there is something to read and stays while old files remain — switching
+logging off should not take away the log you switched it on to get.
+
+Reading, listing and clearing are the shared package's `Logs\Viewer`, since
+every plugin here writes the same log and would otherwise grow its own reader
+for it. The page, the menu entry and the capability behind clearing are this
+plugin's.
 
 Two of those tabs are panels rather than fields, and both are driven by
 `assets/js/settings.js` rather than by script in the markup. Carbon Fields

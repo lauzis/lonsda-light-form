@@ -7,12 +7,11 @@
  * Never loaded at runtime.
  *
  * Regenerate with:
- *   bin/schema-i18n --domain=lonsda-light-form --out=languages/schema-strings.php config/settings.json config/logs.json
+ *   bin/schema-i18n --domain=lonsda-light-form --out=languages/schema-strings.php config/settings.json
  */
 
 return;
 
-__( '@callback:llf_logs_view', 'lonsda-light-form' );
 __( '@callback:llf_recaptcha_test', 'lonsda-light-form' );
 __( '@callback:llf_styles_preview', 'lonsda-light-form' );
 __( '@callback:llf_transfer_ui', 'lonsda-light-form' );

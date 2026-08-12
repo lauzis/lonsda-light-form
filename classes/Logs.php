@@ -30,6 +30,24 @@ class Logs
     }
 
     /**
+     * Whether the Logs screen is worth a menu entry.
+     *
+     * Not simply "is logging on": switching it off should not take away the
+     * log it already wrote, which is usually the moment somebody wants to read
+     * it. It goes when there is nothing left to read.
+     */
+    public static function hasSomethingToShow(): bool
+    {
+        $logger = self::logger();
+
+        if (!$logger) {
+            return false;
+        }
+
+        return $logger->isEnabled() || (bool) $logger->files();
+    }
+
+    /**
      * Deletes this plugin's log files.
      *
      * Recorded first, in the log being deleted: the line does not survive, but

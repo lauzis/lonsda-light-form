@@ -449,6 +449,16 @@ written as plain paragraphs is run through `wpautop()` on the way out, after the
 placeholders are substituted so that `{all_fields}`, which is paragraphs
 already, is not wrapped in one more.
 
+**Line endings are normalised to `\n`** in everything offered for translation.
+A textarea submits CRLF, so that is what a multi-line message is stored as —
+but WordPress standardises line endings when it reads a `.po` (`PO::unpoify()`,
+deliberately), so a translation that arrived through the POT was keyed to the
+LF form and never matched the CRLF original. Every multi-line message
+translated that way was silently ignored while the file looked perfectly
+correct. The msgid is now written normalised, and a lookup that misses tries
+the normalised form before giving up, so files written the old way keep
+working.
+
 Saving merges rather than replaces. The editor shows one form at a time, so
 treating a save as "these are all the translations there are" would wipe every
 other form's work. An emptied box removes that translation rather than storing

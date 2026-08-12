@@ -1781,6 +1781,32 @@ class Tests
             'Priekšvārds' === $shown && 'Message' === $untranslated
         );
 
+        self::title(__('A message with line breaks in it matches the file too', 'lonsda-light-form'));
+        // The case that silently failed for every multi-line string: a textarea
+        // submits CRLF, so that is what is stored and looked up — but
+        // WordPress standardises line endings when it reads a .po, on purpose,
+        // so anything translated through the POT came back keyed to the LF form
+        // and never matched. The file looked perfectly correct while the
+        // translation was ignored.
+        $body = "Line one.\r\n\r\nLine two.";
+        carbon_set_post_meta($post_id, 'llf_notify_message', $body);
+        Forms::syncToTable($post_id, get_post($post_id));
+
+        $bodyKey = (string) Forms::get($form_id)['settings']['notify_message_key'];
+        self::translate([$bodyKey => 'Rinda viena.']);
+
+        unload_textdomain(Translations::DOMAIN);
+        load_textdomain(Translations::DOMAIN, Translations::path(self::TEST_LOCALE));
+        $found = Strings::get($body, $bodyKey);
+        unload_textdomain(Translations::DOMAIN);
+        Translations::load();
+
+        self::assert(
+            $found,
+            'Rinda viena.' === $found,
+            ['stored' => bin2hex(substr($body, 0, 16))]
+        );
+
         self::title(__('A second save keeps what it was not shown', 'lonsda-light-form'));
         self::translate([$other => 'Ziņa']);
         $now = Translations::existing(self::TEST_LOCALE);

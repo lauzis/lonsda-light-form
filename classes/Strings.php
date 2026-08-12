@@ -53,6 +53,25 @@ class Strings
             $translated = translate_with_gettext_context($text, $key, Translations::DOMAIN);
         }
 
+        if ($translated === $text) {
+            $normalised = self::newlines($text);
+
+            if ($normalised !== $text) {
+                // The same string, keyed two ways. A textarea submits CRLF, so
+                // that is what the wording is stored and looked up as — but
+                // WordPress standardises line endings when it reads a .po
+                // (PO::unpoify, deliberately), so a translation that arrived
+                // that way is keyed to the LF form and never matched. Every
+                // multi-line message translated through the POT was silently
+                // ignored, and the file looked perfectly correct.
+                $second = translate_with_gettext_context($normalised, $key, Translations::DOMAIN);
+
+                if ($second !== $normalised) {
+                    $translated = $second;
+                }
+            }
+        }
+
         /**
          * Filters a form string after the built-in translation layer.
          *
@@ -99,6 +118,17 @@ class Strings
     public static function hasBlocks(string $text): bool
     {
         return 1 === preg_match('/<(p|br|div|ul|ol|li|h[1-6]|blockquote|table)\b/i', $text);
+    }
+
+    /**
+     * Line endings as gettext will end up holding them.
+     *
+     * WordPress standardises CRLF to LF when it imports a .po, so anything that
+     * has to match across that boundary has to agree with it.
+     */
+    public static function newlines(string $text): string
+    {
+        return str_replace(["\r\n", "\r"], "\n", $text);
     }
 
     /**
@@ -268,7 +298,9 @@ class Strings
             }
 
             if ('' !== $key && '' !== $text) {
-                $strings[$keyName] = ['key' => $key, 'text' => $text];
+                // Normalised, so the POT, the file saved from the editor and a
+                // file that came back through a .po all key on the same thing.
+                $strings[$keyName] = ['key' => $key, 'text' => self::newlines($text)];
             }
         }
 

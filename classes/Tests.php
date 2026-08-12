@@ -32,6 +32,18 @@ class Tests
      */
     public const TEST_LOCALE = 'zz_ZZ';
 
+    /**
+     * A second one, for the cases that need two languages at once.
+     *
+     * Everything here used to happen in one test language, which cannot show
+     * the failure worth guarding against: load_textdomain() merges into what is
+     * already loaded, so a string translated in the language being left can
+     * survive into the one being entered and read as a translation that nobody
+     * wrote. Two languages, one of them missing the string, is the only way to
+     * see it.
+     */
+    public const TEST_LOCALE_ALT = 'zy_ZY';
+
     /** Slug => label, for the buttons on the tests page. */
     public static function scenarios(): array
     {
@@ -61,9 +73,9 @@ class Tests
      *
      * @param array<string, string> $pairs Translation key => translated text.
      */
-    private static function translate(array $pairs): bool
+    private static function translate(array $pairs, string $locale = self::TEST_LOCALE): bool
     {
-        $result = Translations::save(self::TEST_LOCALE, $pairs);
+        $result = Translations::save($locale, $pairs);
 
         if (is_wp_error($result)) {
             self::title(__('Writing the test translation', 'lonsda-light-form'));
@@ -72,7 +84,7 @@ class Tests
             return false;
         }
 
-        $path = Translations::path(self::TEST_LOCALE);
+        $path = Translations::path($locale);
 
         if (!is_readable($path)) {
             self::title(__('Writing the test translation', 'lonsda-light-form'));
@@ -89,7 +101,7 @@ class Tests
         // among the strings the site has, so save() dropped them. That is a
         // test setting up something the plugin does not agree exists, and is
         // worth saying so rather than failing three assertions later.
-        $missing = array_diff(array_keys($pairs), array_keys(Translations::existing(self::TEST_LOCALE)));
+        $missing = array_diff(array_keys($pairs), array_keys(Translations::existing($locale)));
 
         if ($missing) {
             self::title(__('Writing the test translation', 'lonsda-light-form'));
@@ -1220,6 +1232,70 @@ class Tests
         $replied = [];
         self::submit($form_id, $answers);
 
+        self::title(__('A second language gets its own translation, not the first one\'s', 'lonsda-light-form'));
+        // The failure this is here for: load_textdomain() merges into whatever
+        // is already loaded, so without unloading first, a string translated in
+        // the language being left survives into the one being entered — and
+        // reads as a translation nobody wrote. One test language can never show
+        // that. This one translates the subject differently and the body not at
+        // all, so the body has to fall back to English rather than to Latvian.
+        self::translate(
+            [ (string) $settings['auto_reply_subject_key'] => 'Sveiki no {site_name}' ],
+            self::TEST_LOCALE_ALT
+        );
+
+        $inOther = static function ($context) {
+            $context['locale']   = self::TEST_LOCALE_ALT;
+            $context['language'] = 'zy';
+
+            return $context;
+        };
+
+        $replied = [];
+
+        add_filter(Submission::FILTER_CONTEXT, $inOther, 10);
+        self::submit($form_id, $answers);
+        remove_filter(Submission::FILTER_CONTEXT, $inOther, 10);
+
+        $other = $replied[0] ?? [];
+        self::assert(
+            (string) ($other['subject'] ?? ''),
+            'Sveiki no ' . $site === ($other['subject'] ?? '')
+                // The other language's wording reached neither half of it.
+                && false === strpos((string) ($other['message'] ?? ''), 'Sveiki, Anna')
+                && false === strpos((string) ($other['message'] ?? ''), 'Kontakti')
+                // And what it has no translation for is English, not Latvian.
+                && false !== strpos((string) ($other['message'] ?? ''), 'Hello Anna'),
+            $other
+        );
+
+        self::title(__('The notification too, each language getting its own', 'lonsda-light-form'));
+        // The notification takes its language from the request rather than from
+        // the submission, so the Testing tab is where a language can be chosen
+        // for it — and both languages are asked for in turn, because a second
+        // language answering with the first one's words is the failure worth
+        // catching for this one as well.
+        self::translate([ (string) $settings['notify_subject_key'] => 'Ziņa pirmajā' ]);
+        self::translate(
+            [ (string) $settings['notify_subject_key'] => 'Ziņa otrajā' ],
+            self::TEST_LOCALE_ALT
+        );
+
+        $notified = [];
+        TestMail::send($post_id, TestMail::NOTIFICATION, 'tester@example.com', self::TEST_LOCALE);
+        $first = (string) ($notified[0]['subject'] ?? '');
+
+        $notified = [];
+        TestMail::send($post_id, TestMail::NOTIFICATION, 'tester@example.com', self::TEST_LOCALE_ALT);
+        $second = (string) ($notified[0]['subject'] ?? '');
+
+        self::assert(
+            $first . '  /  ' . $second,
+            false !== strpos($first, 'Ziņa pirmajā')
+                && false !== strpos($second, 'Ziņa otrajā')
+                && false === strpos($second, 'pirmajā')
+        );
+
         self::title(__('A submission in the site\'s language is answered in it again', 'lonsda-light-form'));
         // The language has to be put back, or the first translated reply would
         // be the last English one.
@@ -1839,7 +1915,14 @@ class Tests
 
         // Written by any scenario that needs a translation to exist, and only
         // ever to the test locale, which no site serves.
-        foreach ([Translations::path(self::TEST_LOCALE), Translations::poPath(self::TEST_LOCALE)] as $file) {
+        $files = [
+            Translations::path(self::TEST_LOCALE),
+            Translations::poPath(self::TEST_LOCALE),
+            Translations::path(self::TEST_LOCALE_ALT),
+            Translations::poPath(self::TEST_LOCALE_ALT),
+        ];
+
+        foreach ($files as $file) {
             if (file_exists($file)) {
                 unlink($file);
             }

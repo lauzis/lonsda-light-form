@@ -453,6 +453,9 @@ $llf_settings_url    = admin_url('admin.php?page=' . LLF_SLUG . '-settings');
     <p style="max-width:860px;">
         <?php esc_html_e('Both buttons read what was last saved, so save the form before testing a change. A button is disabled when its message is not configured, and says what would switch it on.', 'lonsda-light-form'); ?>
     </p>
+    <p style="max-width:860px;">
+        <?php esc_html_e('The Language picker sends the message as a visitor reading in that language would receive it, so you can check a translation without switching the site or filling the form in yourself. It applies to the notification too, even though a real notification follows the language of whoever triggered it. Anything that arrives still in English simply has no translation yet — the Translations screen is where to add it.', 'lonsda-light-form'); ?>
+    </p>
 
     <h2><?php esc_html_e('Auto reply', 'lonsda-light-form'); ?></h2>
     <p style="max-width:860px;">

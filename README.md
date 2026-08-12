@@ -576,6 +576,19 @@ built its own message would only prove the test works.
   switch it on. When a send produces nothing, the reason is reported rather
   than "nothing happened".
 
+There is a **Language** picker beside the address: the site's own, or any
+language the site offers. Choosing one sends the message as a visitor reading
+in that language would receive it — the whole request is switched, so it applies
+to the notification as well as the reply, even though only the reply follows the
+submission's language in normal use. Anything still in English in what arrives
+has no translation yet rather than a broken one, and the status line says which
+language it went out in.
+
+The locale is checked against what the site actually offers before anything is
+switched. It arrives from a browser and decides the language of the whole
+request, so being well-formed is not enough; a locale with a translation file
+installed counts too, since the file is the site saying it means something.
+
 Both read what was **last saved**, so save before testing a change.
 
 ## Auto reply

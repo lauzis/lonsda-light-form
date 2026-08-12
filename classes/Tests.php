@@ -1286,6 +1286,57 @@ class Tests
         self::title(__('Nothing is stored as an entry', 'lonsda-light-form'));
         self::assert(sprintf('%d before, %d after', $before, Entries::count()), $before === Entries::count());
 
+        self::title(__('It can be sent in a language other than this one', 'lonsda-light-form'));
+        // The point of the picker: seeing what a visitor in that language
+        // receives, without having to be that visitor.
+        carbon_set_post_meta($post_id, 'llf_notify_subject', 'New message');
+        Forms::syncToTable($post_id, get_post($post_id));
+
+        $settings = Forms::get($form_id)['settings'];
+        Translations::save(self::TEST_LOCALE, [
+            (string) $settings['notify_subject_key'] => 'Jauna ziņa',
+        ]);
+
+        $sent = [];
+        $r    = TestMail::send($post_id, TestMail::NOTIFICATION, 'tester@example.com', self::TEST_LOCALE);
+        self::assert(
+            (string) ($sent[0]['subject'] ?? ''),
+            $r['sent'] && false !== strpos((string) ($sent[0]['subject'] ?? ''), 'Jauna ziņa')
+        );
+
+        self::title(__('And the language is named in what comes back', 'lonsda-light-form'));
+        // Anything still in English in that mail has no translation rather than
+        // a broken one, and the reply says so rather than leaving it a puzzle.
+        self::assert($r['message'], false !== strpos($r['message'], self::TEST_LOCALE));
+
+        self::title(__('Without a language it is sent in this one', 'lonsda-light-form'));
+        $sent = [];
+        TestMail::send($post_id, TestMail::NOTIFICATION, 'tester@example.com');
+        self::assert(
+            (string) ($sent[0]['subject'] ?? ''),
+            false === strpos((string) ($sent[0]['subject'] ?? ''), 'Jauna ziņa')
+        );
+
+        self::title(__('A locale the site does not have is ignored, not obeyed', 'lonsda-light-form'));
+        // It arrives from a browser and decides what language the whole request
+        // is switched into, so being merely well-formed is not enough.
+        $sent = [];
+        TestMail::send($post_id, TestMail::NOTIFICATION, 'tester@example.com', 'qq_QQ');
+        self::assert(
+            'fell back to the site\'s own language',
+            false === strpos((string) ($sent[0]['subject'] ?? ''), 'Jauna ziņa')
+        );
+
+        self::title(__('And the language is put back once the mail has gone', 'lonsda-light-form'));
+        // Whoever pressed the button is not the visitor being imagined, and the
+        // rest of the request is theirs. Asked of the form strings rather than
+        // of determine_locale(), which never moves for a locale core has no
+        // files for and would report success either way.
+        self::assert(
+            'form strings resolve in this language again',
+            'New message' === Strings::get('New message', (string) $settings['notify_subject_key'])
+        );
+
         self::title(__('An invalid address is refused', 'lonsda-light-form'));
         $r = TestMail::send($post_id, TestMail::NOTIFICATION, 'not-an-address');
         self::assert($r['message'], false === $r['sent']);

@@ -638,6 +638,25 @@ class Admin
                 </p>
 
                 <p>
+                    <label for="llf-test-locale"><strong><?php esc_html_e('Language', 'lonsda-light-form'); ?></strong></label><br>
+                    <select id="llf-test-locale">
+                        <option value=""><?php
+                            printf(
+                                /* translators: %s: locale this screen is being served as */
+                                esc_html__('Site default (%s)', 'lonsda-light-form'),
+                                esc_html(determine_locale())
+                            );
+                        ?></option>
+                        <?php foreach (\LonsdaLightForm\Translations::locales() as $llf_code => $llf_label) : ?>
+                            <option value="<?php echo esc_attr($llf_code); ?>"><?php echo esc_html($llf_label); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <span class="description">
+                        <?php esc_html_e('Sends it as a visitor in that language would receive it.', 'lonsda-light-form'); ?>
+                    </span>
+                </p>
+
+                <p>
                     <button type="button" class="button" id="llf-test-notification"
                         <?php disabled('' === trim((string) ($s['notify_to'] ?? ''))); ?>>
                         <?php esc_html_e('Send test notification', 'lonsda-light-form'); ?>
@@ -685,7 +704,8 @@ class Admin
         $result = \LonsdaLightForm\TestMail::send(
             isset($_POST['post_id']) ? (int) $_POST['post_id'] : 0,
             isset($_POST['which']) ? sanitize_key(wp_unslash($_POST['which'])) : '',
-            isset($_POST['to']) ? sanitize_email(wp_unslash($_POST['to'])) : ''
+            isset($_POST['to']) ? sanitize_email(wp_unslash($_POST['to'])) : '',
+            isset($_POST['locale']) ? sanitize_text_field(wp_unslash($_POST['locale'])) : ''
         );
 
         wp_send_json($result);

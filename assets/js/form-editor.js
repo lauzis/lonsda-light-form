@@ -30,6 +30,7 @@
 
 	function panel( root ) {
 		var to     = root.querySelector( '#llf-test-to' ),
+			locale = root.querySelector( '#llf-test-locale' ),
 			status = root.querySelector( '#llf-test-status' ),
 			post   = root.getAttribute( 'data-post' );
 
@@ -57,6 +58,9 @@
 			data.append( 'post_id', post );
 			data.append( 'which', which );
 			data.append( 'to', address );
+			// Empty means the language this screen is in, which is what the
+			// site sends when nothing else has a say.
+			data.append( 'locale', locale ? locale.value : '' );
 
 			button.disabled = true;
 			say( settings.i18n.sending, true );

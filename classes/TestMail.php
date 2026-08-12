@@ -25,9 +25,10 @@ class TestMail
      * @param int    $post_id Form being edited.
      * @param string $which   self::NOTIFICATION or self::AUTO_REPLY.
      * @param string $to      Address to send to.
+     * @param string $locale  Language to send it in. Empty for the site's own.
      * @return array{sent: bool, message: string, subject: string}
      */
-    public static function send(int $post_id, string $which, string $to): array
+    public static function send(int $post_id, string $which, string $to, string $locale = ''): array
     {
         if (!current_user_can('manage_options')) {
             return self::fail(__('You are not allowed to send test emails.', 'lonsda-light-form'));
@@ -48,6 +49,24 @@ class TestMail
 
         $values  = self::sampleValues($form, $to);
         $context = self::sampleContext($form_id, $to);
+        $locale  = self::acceptLocale($locale);
+
+        if ('' !== $locale) {
+            // Recorded on the submission as well as switched to below. The auto
+            // reply reads the language off the submission rather than off the
+            // request, so a test that only switched the request would be
+            // testing something no visitor ever does.
+            $context['locale']   = $locale;
+            $context['language'] = self::languageFor($locale);
+        }
+
+        // The notification, unlike the reply, follows the language of the
+        // request. Both are switched here anyway: the question this tab answers
+        // is what the message looks like in a given language, and answering it
+        // for one of the two would be a trap.
+        $switched = '' !== $locale
+            ? Locale::switchTo($locale, (string) $context['language'])
+            : false;
 
         $captured = null;
 
@@ -66,36 +85,91 @@ class TestMail
 
         add_filter($filter, $redirect, 99);
 
-        // Called directly rather than by firing the submitted hook: that would
-        // also reach the entries listener, and a test would be stored as a real
-        // submission — and any listener a theme has added would run too.
-        if (self::AUTO_REPLY === $which) {
-            AutoReply::send($values, $form, $context);
-        } else {
-            Notifications::send($values, $form, $context);
-        }
+        try {
+            // Called directly rather than by firing the submitted hook: that
+            // would also reach the entries listener, and a test would be stored
+            // as a real submission — and any listener a theme has added would
+            // run too.
+            if (self::AUTO_REPLY === $which) {
+                AutoReply::send($values, $form, $context);
+            } else {
+                Notifications::send($values, $form, $context);
+            }
+        } finally {
+            remove_filter($filter, $redirect, 99);
 
-        remove_filter($filter, $redirect, 99);
+            // Before anything below is worded: what comes back is read by
+            // whoever pressed the button, not by the visitor being imagined.
+            if ($switched) {
+                Locale::restore();
+            }
+        }
 
         if (null === $captured) {
             return self::fail(self::whyNothingWasSent($which, $form));
         }
 
         Logs::add('test-mail', 'Test email sent.', [
-            'form' => $form_id,
-            'kind' => $which,
-            'to'   => $to,
+            'form'   => $form_id,
+            'kind'   => $which,
+            'to'     => $to,
+            'locale' => $locale ?: 'site default',
         ]);
 
         return [
             'sent'    => true,
             'subject' => (string) ($captured['subject'] ?? ''),
-            'message' => sprintf(
-                /* translators: %s: email address */
-                __('Sent to %s. If it does not arrive, the plugin log will say whether it left this site.', 'lonsda-light-form'),
-                $to
-            ),
+            'message' => '' === $locale
+                ? sprintf(
+                    /* translators: %s: email address */
+                    __('Sent to %s. If it does not arrive, the plugin log will say whether it left this site.', 'lonsda-light-form'),
+                    $to
+                )
+                : sprintf(
+                    /* translators: 1: email address, 2: locale, e.g. lv_LV */
+                    __('Sent to %1$s in %2$s. Anything still in English there has no translation yet.', 'lonsda-light-form'),
+                    $to,
+                    $locale
+                ),
         ];
+    }
+
+    /**
+     * The locale to test in, or '' for the site's own.
+     *
+     * Checked against what the site actually offers rather than taken as given:
+     * this arrives from a browser and decides which language the whole request
+     * is switched into. A name that is merely well-formed is not enough.
+     *
+     * A locale with a translation file installed counts even when the offered
+     * list does not mention it — the file being there is the site saying it
+     * means something, and it is the case worth testing.
+     */
+    private static function acceptLocale(string $locale): string
+    {
+        $locale = Translations::sanitizeLocale($locale);
+
+        if ('' === $locale) {
+            return '';
+        }
+
+        if (isset(Translations::locales()[$locale]) || isset(Translations::installed()[$locale])) {
+            return $locale;
+        }
+
+        return '';
+    }
+
+    /** The bare language code a locale belongs to: lv_LV is lv. */
+    private static function languageFor(string $locale): string
+    {
+        if (class_exists('\\Lauzis\\WpPackages\\I18n\\Language')) {
+            return \Lauzis\WpPackages\I18n\Language::normalize($locale);
+        }
+
+        $parts = preg_split('/[_-]/', $locale);
+
+        return is_array($parts) ? strtolower($parts[0]) : '';
     }
 
     /**

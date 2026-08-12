@@ -45,6 +45,7 @@ class Settings
         $page->callback('llf_transfer_ui', [Admin::class, 'transferPanel']);
         $page->callback('llf_recaptcha_test', [Admin::class, 'recaptchaTest']);
         $page->callback('llf_styles_preview', [Admin::class, 'stylesPreview']);
+        $page->callback('llf_logs_view', [Admin::class, 'logsPanel']);
 
         $page->register(LLF_DIR . 'config/settings.json', [
             'prefix' => self::PREFIX,
@@ -54,6 +55,16 @@ class Settings
         $page->register(\WpPackages_Registry::schema('logs'), [
             'prefix' => self::PREFIX,
             'domain' => 'wp-plugin-packages',
+        ]);
+
+        // Adds the viewer to the section the package just declared, rather than
+        // to one of our own: the checkbox that switches logging on and the log
+        // it writes belong on the same tab. Whether it appears at all is this
+        // plugin's decision, which is why the panel is registered here and not
+        // by the package.
+        $page->register(LLF_DIR . 'config/logs.json', [
+            'prefix' => self::PREFIX,
+            'domain' => 'lonsda-light-form',
         ]);
 
         $page->render();

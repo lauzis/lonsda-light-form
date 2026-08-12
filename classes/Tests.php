@@ -63,6 +63,43 @@ class Tests
     }
 
     /**
+     * What the translation layer sees for one string, right now.
+     *
+     * Attached to the assertions that turn on a translation being applied. Each
+     * can fail for half a dozen reasons that look identical from outside — the
+     * file, the key, the locale the request is in, WPML answering first — and
+     * the failure alone distinguishes none of them.
+     *
+     * @param string $text   The original, as stored.
+     * @param string $key    Its translation key.
+     * @param string $locale The language the test asked for.
+     * @return array<string, mixed>
+     */
+    private static function lookup(string $text, string $key, string $locale): array
+    {
+        $wpml = has_filter('wpml_translate_single_string')
+            ? (string) apply_filters('wpml_translate_single_string', $text, Strings::CONTEXT, $key)
+            : '(no wpml)';
+
+        return [
+            'key'            => $key,
+            'request locale' => determine_locale(),
+            'asked for'      => $locale,
+            'file'           => is_readable(Translations::path($locale)) ? 'present' : 'missing',
+            'key in file'    => isset(Translations::existing($locale)[$key]) ? 'yes' : 'no',
+            'key collected'  => isset(Translations::strings()[$key]) ? 'yes' : 'no',
+            // The two halves of Strings::get(), separately: WPML is asked first
+            // and its answer wins whenever it differs from the original, so a
+            // WPML that returns something subtly different — a dash, a space —
+            // stops the file ever being consulted.
+            'wpml says'      => $wpml,
+            'wpml differs'   => '(no wpml)' === $wpml ? 'n/a' : ($wpml === $text ? 'no' : 'YES'),
+            'gettext says'   => translate_with_gettext_context($text, $key, Translations::DOMAIN),
+            'Strings::get'   => Strings::get($text, $key),
+        ];
+    }
+
+    /**
      * Writes a translation, and stops the run if it did not land.
      *
      * Every scenario that tests a translation begins by writing one, and a
@@ -998,13 +1035,19 @@ class Tests
 
         self::title(__('And the language is put back afterwards', 'lonsda-light-form'));
         // A reply left the site in another language once the mail had gone
-        // would be a far worse bug than the one this fixes.
+        // would be a far worse bug than the one this fixes. Failing here means
+        // the switch was not undone — so what the layer says now, back in the
+        // request's own language, is the whole question.
         $sent = [];
         self::submit($form_id, ['email' => 'visitor@example.com', 'sender_name' => 'Anna']);
         self::assert(
             (string) ($sent[0]['subject'] ?? ''),
             'Thanks, Anna' === ($sent[0]['subject'] ?? ''),
-            ['locale' => determine_locale()]
+            self::lookup(
+                'Thanks, {sender_name}',
+                (string) $settings['auto_reply_subject_key'],
+                determine_locale()
+            )
         );
 
         self::title(__('Without an email field there is nowhere to send it', 'lonsda-light-form'));
@@ -1059,21 +1102,37 @@ class Tests
 
         $notified = [];
         $replied  = [];
+        // What the translation layer saw while the message was being built.
+        // Recorded here rather than asserted on later because here is inside
+        // the language switch: by the time an assertion runs, the request is
+        // back in its own language and every answer has changed.
+        $noteSaw  = [];
+        $replySaw = [];
 
-        $spyNote  = static function ($mail) use (&$notified) {
+        $spyNote = static function ($mail, $values, $form, $context) use (&$notified, &$noteSaw) {
             $notified[] = $mail;
+            $noteSaw    = self::lookup(
+                (string) ($form['settings']['notify_subject'] ?? ''),
+                (string) ($form['settings']['notify_subject_key'] ?? ''),
+                (string) ($context['locale'] ?? '')
+            );
 
             return $mail;
         };
 
-        $spyReply = static function ($mail) use (&$replied) {
+        $spyReply = static function ($mail, $values, $form, $context) use (&$replied, &$replySaw) {
             $replied[] = $mail;
+            $replySaw  = self::lookup(
+                (string) ($form['settings']['auto_reply_subject'] ?? ''),
+                (string) ($form['settings']['auto_reply_subject_key'] ?? ''),
+                (string) ($context['locale'] ?? '')
+            );
 
             return $mail;
         };
 
-        add_filter(Notifications::FILTER_MAIL, $spyNote, 10);
-        add_filter(AutoReply::FILTER_MAIL, $spyReply, 10);
+        add_filter(Notifications::FILTER_MAIL, $spyNote, 10, 4);
+        add_filter(AutoReply::FILTER_MAIL, $spyReply, 10, 4);
 
         $answers = [
             'email'       => 'visitor@example.com',
@@ -1169,7 +1228,8 @@ class Tests
         self::title(__('A translation may put the tokens somewhere else entirely', 'lonsda-light-form'));
         self::assert(
             (string) ($replied[0]['subject'] ?? ''),
-            $site . ': paldies, Anna' === ($replied[0]['subject'] ?? '')
+            $site . ': paldies, Anna' === ($replied[0]['subject'] ?? ''),
+            $replySaw
         );
 
         self::title(__('And the words a token stands for are translated too', 'lonsda-light-form'));
@@ -1226,7 +1286,8 @@ class Tests
         // one is read by whoever runs the site, not by the visitor.
         self::assert(
             (string) ($notified[0]['subject'] ?? ''),
-            'From Anna via ' . $site === ($notified[0]['subject'] ?? '')
+            'From Anna via ' . $site === ($notified[0]['subject'] ?? ''),
+            $noteSaw
         );
 
         $replied = [];
@@ -1297,11 +1358,14 @@ class Tests
         );
 
         self::title(__('A submission in the site\'s language is answered in it again', 'lonsda-light-form'));
+        // Failing here means a language switch was not undone: the reply came
+        // out in the language of the submission before it.
         // The language has to be put back, or the first translated reply would
         // be the last English one.
         self::assert(
             (string) ($replied[0]['subject'] ?? ''),
-            'Thank you Anna — ' . $site === ($replied[0]['subject'] ?? '')
+            'Thank you Anna — ' . $site === ($replied[0]['subject'] ?? ''),
+            $replySaw
         );
 
         // The validation messages are shown by the request rather than by a
@@ -1431,10 +1495,27 @@ class Tests
         ]);
 
         $sent = [];
-        $r    = TestMail::send($post_id, TestMail::NOTIFICATION, 'tester@example.com', self::TEST_LOCALE);
+        $saw  = [];
+        $peek = static function ($mail, $values, $form, $context) use (&$saw) {
+            $saw = self::lookup(
+                (string) ($form['settings']['notify_subject'] ?? ''),
+                (string) ($form['settings']['notify_subject_key'] ?? ''),
+                (string) ($context['locale'] ?? '')
+            );
+
+            return $mail;
+        };
+
+        // At 10, so it runs inside the switch and before TestMail rewrites the
+        // recipient at 99.
+        add_filter(Notifications::FILTER_MAIL, $peek, 10, 4);
+        $r = TestMail::send($post_id, TestMail::NOTIFICATION, 'tester@example.com', self::TEST_LOCALE);
+        remove_filter(Notifications::FILTER_MAIL, $peek, 10);
+
         self::assert(
             (string) ($sent[0]['subject'] ?? ''),
-            $r['sent'] && false !== strpos((string) ($sent[0]['subject'] ?? ''), 'Jauna ziņa')
+            $r['sent'] && false !== strpos((string) ($sent[0]['subject'] ?? ''), 'Jauna ziņa'),
+            $saw
         );
 
         self::title(__('And the language is named in what comes back', 'lonsda-light-form'));

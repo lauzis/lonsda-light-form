@@ -128,7 +128,7 @@ class Forms
 
         // On save rather than on render: a translator should see a string
         // before anyone has visited the page it appears on.
-        Strings::register($definition);
+        Strings::register($definition, (string) $post->post_title);
 
         $now      = current_time('mysql', true);
         $existing = (int) $wpdb->get_var($wpdb->prepare("SELECT id FROM {$table} WHERE post_id = %d", $post_id));

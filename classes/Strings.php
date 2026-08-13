@@ -20,6 +20,14 @@ class Strings
     public const CONTEXT = 'Lonsda Light Form';
 
     /**
+     * Marks a key as one of the plugin's own strings rather than a form's.
+     *
+     * A form's keys are derived from its text id or a field name, neither of
+     * which can produce this prefix, so the two sets cannot collide.
+     */
+    public const GENERAL_PREFIX = 'general__';
+
+    /**
      * The translation of $text, or $text itself when nothing translates it.
      *
      * @param string $text Original wording, as typed into the editor.
@@ -45,6 +53,25 @@ class Strings
             $translated = translate_with_gettext_context($text, $key, Translations::DOMAIN);
         }
 
+        if ($translated === $text) {
+            $normalised = self::newlines($text);
+
+            if ($normalised !== $text) {
+                // The same string, keyed two ways. A textarea submits CRLF, so
+                // that is what the wording is stored and looked up as — but
+                // WordPress standardises line endings when it reads a .po
+                // (PO::unpoify, deliberately), so a translation that arrived
+                // that way is keyed to the LF form and never matched. Every
+                // multi-line message translated through the POT was silently
+                // ignored, and the file looked perfectly correct.
+                $second = translate_with_gettext_context($normalised, $key, Translations::DOMAIN);
+
+                if ($second !== $normalised) {
+                    $translated = $second;
+                }
+            }
+        }
+
         /**
          * Filters a form string after the built-in translation layer.
          *
@@ -57,6 +84,137 @@ class Strings
     }
 
     /**
+     * The same, for a string that is a body of text rather than a line of one.
+     *
+     * A confirmation and both emails are written in an editor that produces
+     * paragraphs, but their translations are typed into a box on the
+     * translations screen that has never had any markup in it. The result
+     * arrived as one unbroken block — the message somebody wrote as three
+     * paragraphs, run together, in the language most of the site's visitors
+     * read.
+     *
+     * So anything that comes back without block markup is paragraphed. That
+     * covers the translation, and equally a message hand-typed into a plain
+     * textarea: in both cases somebody pressed Enter and meant it. Anything
+     * that already has markup is left exactly as it is, because adding
+     * paragraphs around paragraphs produces empty ones.
+     */
+    public static function html(string $text, string $key): string
+    {
+        $translated = self::get($text, $key);
+
+        return self::hasBlocks($translated) ? $translated : wpautop($translated);
+    }
+
+    /**
+     * Whether a string is already marked up as more than one block.
+     *
+     * Public because a body with placeholders in it cannot use html() above:
+     * the paragraphing has to happen after the tokens are substituted, so that
+     * a token standing for blocks of its own is not wrapped in a paragraph,
+     * while the decision has to be made on the template before they are — see
+     * Notifications::message().
+     */
+    public static function hasBlocks(string $text): bool
+    {
+        return 1 === preg_match('/<(p|br|div|ul|ol|li|h[1-6]|blockquote|table)\b/i', $text);
+    }
+
+    /**
+     * Line endings as gettext will end up holding them.
+     *
+     * WordPress standardises CRLF to LF when it imports a .po, so anything that
+     * has to match across that boundary has to agree with it.
+     */
+    public static function newlines(string $text): string
+    {
+        return str_replace(["\r\n", "\r"], "\n", $text);
+    }
+
+    /**
+     * The plugin's own wording that a visitor reads.
+     *
+     * Everything here used to be a plain __() against the plugin's text domain,
+     * which meant translating it required a .po in a folder WordPress replaces
+     * on every update, and put it out of reach of the screen where the rest of
+     * a form's wording is translated. A site that had translated every label
+     * still told people "This field is required." in English.
+     *
+     * So these go through the same layer as a form's own strings: WPML first,
+     * then the form-content MO. The English here is the msgid, exactly as a
+     * typed-in label is, so an untranslated string still reads as a sentence.
+     *
+     * Deliberately only what a visitor can see. Admin wording is translated the
+     * ordinary way — whoever is reading it can also read the .po.
+     *
+     * Short names, prefixed on the way out: the call sites read better for it,
+     * and the prefix is an implementation detail of the key rather than
+     * something each caller should have to remember.
+     *
+     * @return array<string, string> Short name => English.
+     */
+    private static function catalogue(): array
+    {
+        return [
+            // What a field says when it is filled in wrongly.
+            'error_required'   => 'This field is required.',
+            'error_checkbox'   => 'This box must be ticked.',
+            'error_email'      => 'Please enter a valid email address.',
+            'error_pattern'    => 'Please enter this in the expected format.',
+            // Keeps its %d: the number is substituted after translation, so a
+            // language that puts it elsewhere in the sentence can.
+            'error_max_length' => 'Please use no more than %d characters.',
+            'error_recaptcha'  => 'Please confirm you are not a robot.',
+
+            // What the form says above itself, after a submission. The
+            // confirmation is not here: that one is written per form, and is
+            // translated with the form.
+            'notice_errors'  => 'Please check the highlighted fields.',
+            'notice_expired' => 'That form had been open too long to send, so nothing was sent. Your answers are still here — please send it again.',
+            'notice_spam'    => 'Your message could not be sent. Please try again.',
+            'notice_sent'    => 'Thank you — your message has been sent.',
+
+            // A ticked box, written into an email as a word — and what an
+            // unanswered optional field is listed as beside it.
+            'word_yes'          => 'Yes',
+            'word_no'           => 'No',
+            'word_not_answered' => '(not answered)',
+        ];
+    }
+
+    /**
+     * One of those strings, translated.
+     *
+     * @param string $name Short name from the catalogue.
+     */
+    public static function general(string $name): string
+    {
+        $catalogue = self::catalogue();
+
+        if (!isset($catalogue[$name])) {
+            return '';
+        }
+
+        return self::get($catalogue[$name], self::GENERAL_PREFIX . $name);
+    }
+
+    /**
+     * The catalogue as the translations screen wants it: key => English.
+     *
+     * @return array<string, string>
+     */
+    public static function generalStrings(): array
+    {
+        $strings = [];
+
+        foreach (self::catalogue() as $name => $text) {
+            $strings[self::GENERAL_PREFIX . $name] = $text;
+        }
+
+        return $strings;
+    }
+
+    /**
      * Makes a form's strings available to translate.
      *
      * Called when a form is saved rather than when one is rendered: a string
@@ -66,8 +224,16 @@ class Strings
      *
      * @param array $settings Stored form definition.
      */
-    public static function register(array $settings): void
+    public static function register(array $settings, string $title = ''): void
     {
+        // Alongside the form's own, rather than on a hook of their own: these
+        // never change, registering the same string twice costs nothing, and
+        // saving a form is the moment somebody is demonstrably thinking about
+        // this plugin's wording.
+        foreach (self::generalStrings() as $key => $text) {
+            self::registerOne($key, $text);
+        }
+
         foreach ($settings['fields'] ?? [] as $field) {
             self::registerOne((string) ($field['translation_key'] ?? ''), (string) ($field['label'] ?? ''));
             self::registerOne((string) ($field['placeholder_key'] ?? ''), (string) ($field['placeholder'] ?? ''));
@@ -78,7 +244,7 @@ class Strings
             (string) ($settings['submit_label'] ?? '') ?: FormBuilder::defaultSubmitLabel()
         );
 
-        foreach (self::formStrings($settings) as $pair) {
+        foreach (self::formStrings($settings, $title) as $pair) {
             self::registerOne($pair['key'], $pair['text']);
         }
     }
@@ -97,9 +263,21 @@ class Strings
      * @param array $settings Stored form definition.
      * @return array<string, array{key: string, text: string}>
      */
-    public static function formStrings(array $settings): array
+    public static function formStrings(array $settings, string $title = ''): array
     {
         $strings = [];
+
+        // First, and not read from the settings like the rest: the title
+        // belongs to the post rather than to the projection, so whoever has it
+        // to hand passes it in. It is here at all because {form_title} puts it
+        // in front of whoever the mail is addressed to, and a form called
+        // Contacts should not say Contacts in the middle of a Latvian sentence.
+        $titleKey = (string) ($settings['title_key'] ?? '');
+        $title    = trim($title);
+
+        if ('' !== $titleKey && '' !== $title) {
+            $strings['title_key'] = ['key' => $titleKey, 'text' => $title];
+        }
 
         $pairs = [
             'success_key'            => ['success_message', [FormBuilder::class, 'defaultSuccessMessage']],
@@ -120,7 +298,9 @@ class Strings
             }
 
             if ('' !== $key && '' !== $text) {
-                $strings[$keyName] = ['key' => $key, 'text' => $text];
+                // Normalised, so the POT, the file saved from the editor and a
+                // file that came back through a .po all key on the same thing.
+                $strings[$keyName] = ['key' => $key, 'text' => self::newlines($text)];
             }
         }
 

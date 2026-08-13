@@ -30,6 +30,7 @@
 
 	function panel( root ) {
 		var to     = root.querySelector( '#llf-test-to' ),
+			locale = root.querySelector( '#llf-test-locale' ),
 			status = root.querySelector( '#llf-test-status' ),
 			post   = root.getAttribute( 'data-post' );
 
@@ -57,6 +58,9 @@
 			data.append( 'post_id', post );
 			data.append( 'which', which );
 			data.append( 'to', address );
+			// Empty means the language this screen is in, which is what the
+			// site sends when nothing else has a say.
+			data.append( 'locale', locale ? locale.value : '' );
 
 			button.disabled = true;
 			say( settings.i18n.sending, true );
@@ -91,58 +95,5 @@
 		} );
 	}
 
-	/**
-	 * Click a placeholder to copy it.
-	 *
-	 * The panel is an ordinary metabox rather than a Carbon Fields one, so it
-	 * is in the page from the start — but this script may still run first, and
-	 * waiting costs nothing.
-	 */
-	function placeholders( root ) {
-		root.addEventListener( 'click', function ( event ) {
-			var code = event.target.closest( '.llf-copy' );
-
-			if ( ! code ) {
-				return;
-			}
-
-			var text = code.textContent.trim();
-
-			function done() {
-				code.classList.add( 'llf-copied' );
-				window.setTimeout( function () {
-					code.classList.remove( 'llf-copied' );
-				}, 700 );
-			}
-
-			if ( navigator.clipboard && navigator.clipboard.writeText ) {
-				navigator.clipboard.writeText( text ).then( done, select );
-				return;
-			}
-
-			select();
-
-			// No clipboard permission, or an insecure origin: selecting the
-			// text at least leaves it one keystroke from copied.
-			function select() {
-				var range = document.createRange();
-				range.selectNodeContents( code );
-				var selection = window.getSelection();
-				selection.removeAllRanges();
-				selection.addRange( range );
-				done();
-			}
-		} );
-
-		// The same from the keyboard, since each token is focusable.
-		root.addEventListener( 'keydown', function ( event ) {
-			if ( ( 'Enter' === event.key || ' ' === event.key ) && event.target.closest( '.llf-copy' ) ) {
-				event.preventDefault();
-				event.target.click();
-			}
-		} );
-	}
-
 	waitFor( '.llf-test-mail', panel );
-	waitFor( '.llf-placeholders', placeholders );
 } )();

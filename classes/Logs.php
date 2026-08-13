@@ -11,7 +11,7 @@ namespace LonsdaLightForm;
 class Logs
 {
     /** @return \Lauzis\WpPackages\Logs\Logger|null */
-    private static function logger()
+    public static function logger()
     {
         if (!class_exists('WpPackages_Registry')) {
             return null;
@@ -27,6 +27,44 @@ class Logs
         $logger = self::logger();
 
         return $logger ? $logger->add($action, $message, $context) : false;
+    }
+
+    /**
+     * Whether the Logs screen is worth a menu entry.
+     *
+     * Not simply "is logging on": switching it off should not take away the
+     * log it already wrote, which is usually the moment somebody wants to read
+     * it. It goes when there is nothing left to read.
+     */
+    public static function hasSomethingToShow(): bool
+    {
+        $logger = self::logger();
+
+        if (!$logger) {
+            return false;
+        }
+
+        return $logger->isEnabled() || (bool) $logger->files();
+    }
+
+    /**
+     * Deletes this plugin's log files.
+     *
+     * Recorded first, in the log being deleted: the line does not survive, but
+     * PHP's error log gets it either way, which is where somebody wondering
+     * what happened to a log will look.
+     */
+    public static function clear(): bool
+    {
+        $logger = self::logger();
+
+        if (!$logger) {
+            return false;
+        }
+
+        self::add('logs', 'Log cleared from the settings page.', ['user' => get_current_user_id()]);
+
+        return (bool) $logger->clear();
     }
 
     /** Always reaches PHP's error log, whatever the logging setting says. */

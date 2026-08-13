@@ -48,7 +48,92 @@ class AutoReply
             return;
         }
 
-        $tokens = Notifications::placeholders($values, $form, $context);
+        // The language the form was submitted in, recorded with the submission
+        // rather than read back off the request. This is the whole message —
+        // wording, defaults, the filter's contribution and the send — so a
+        // reply reaches the visitor in the language they wrote in.
+        //
+        // It is usually the language the request is already in, and then this
+        // costs nothing. It stops mattering only until something sends the
+        // reply from somewhere else: a queue, a retry, wp-cron, an admin
+        // screen resending it. Then the recorded language is the only one that
+        // still knows who this is being written to.
+        $switched = Locale::switchTo(
+            (string) ($context['locale'] ?? ''),
+            (string) ($context['language'] ?? '')
+        );
+
+        try {
+            $mail = self::compose($to, $values, $form, $context);
+
+            if (!$mail || empty($mail['to'])) {
+                return;
+            }
+
+            // Both parts: the HTML as written and a text version built from it.
+            // A client showing plain text otherwise gets the markup flattened
+            // into one unbroken paragraph.
+            $sent = Mail::html(
+                $mail['to'],
+                (string) ($mail['subject'] ?? ''),
+                (string) ($mail['message'] ?? ''),
+                (array) ($mail['headers'] ?? [])
+            );
+        } finally {
+            // In a finally because the filter above is somebody else's code:
+            // whatever it throws, the rest of the request carries on in the
+            // language it started in.
+            if ($switched) {
+                Locale::restore();
+            }
+        }
+
+        if ($sent) {
+            // The language, and whether there was anything to translate it
+            // with — the two facts behind almost every "why did this arrive in
+            // English". Not the message: that one is written to a visitor
+            // about something they said, and a log is not the place for it.
+            $locale = (string) ($context['locale'] ?? '');
+
+            Logs::add('auto-reply', 'Auto reply sent.', [
+                'form'    => $form['id'] ?? null,
+                'to'      => $mail['to'],
+                'locale'  => $locale,
+                'strings' => '' !== $locale && is_readable(Translations::path($locale))
+                    ? 'translation file present'
+                    : 'no translation file',
+            ]);
+
+            return;
+        }
+
+        // Worth recording even though nobody is waiting on it: a site whose
+        // auto replies are failing is a site whose notifications probably are
+        // too, and this is the half nobody notices.
+        Logs::error('auto-reply', 'Auto reply could not be sent.', [
+            'form' => $form['id'] ?? null,
+            'to'   => $mail['to'],
+        ]);
+    }
+
+    /**
+     * The message, built in whatever language is current.
+     *
+     * Separate from send() so that everything language-dependent happens in one
+     * place, inside the switch: the wording, the shipped defaults behind it,
+     * the Yes and No a checkbox becomes, and the filter, which is where a site
+     * adds its own signature and will want that translated too.
+     *
+     * @param string $to      Verified address.
+     * @param array  $values  Field name => submitted value.
+     * @param array  $form    Stored definition.
+     * @param array  $context Submission metadata.
+     * @return array to, subject, message, headers — or empty to send nothing.
+     */
+    private static function compose(string $to, array $values, array $form, array $context): array
+    {
+        $settings = $form['settings'] ?? [];
+        $tokens   = Notifications::placeholders($values, $form, $context);
 
         $subject = trim((string) ($settings['auto_reply_subject'] ?? ''));
         $subject = '' === $subject ? FormBuilder::defaultAutoReplySubject() : $subject;
@@ -67,12 +152,15 @@ class AutoReply
             // Authored in a visual editor, so it goes out as HTML — and through
             // wp_kses_post first, because it is written into an email either
             // way and nothing here needs script or an iframe.
-            'message' => wp_kses_post(self::replace($message, $tokens)),
+            'message' => wp_kses_post(self::paragraphs($message, self::replace($message, $tokens))),
             'headers' => ['Content-Type: text/html; charset=UTF-8'],
         ];
 
         /**
          * Filters the auto reply before it is sent.
+         *
+         * Runs with the locale switched to the language of the submission, so
+         * anything this adds can be translated the same way the rest is.
          *
          * Return an empty array to send nothing.
          *
@@ -81,38 +169,28 @@ class AutoReply
          * @param array $form    Stored definition.
          * @param array $context Submission metadata.
          */
-        $mail = (array) apply_filters(self::FILTER_MAIL, $mail, $values, $form, $context);
+        return (array) apply_filters(self::FILTER_MAIL, $mail, $values, $form, $context);
+    }
 
-        if (!$mail || empty($mail['to'])) {
-            return;
-        }
-
-        // Both parts: the HTML as written and a text version built from it. A
-        // client showing plain text otherwise gets the markup flattened into
-        // one unbroken paragraph.
-        $sent = Mail::html(
-            $mail['to'],
-            (string) ($mail['subject'] ?? ''),
-            (string) ($mail['message'] ?? ''),
-            (array) ($mail['headers'] ?? [])
-        );
-
-        if ($sent) {
-            Logs::add('auto-reply', 'Auto reply sent.', [
-                'form' => $form['id'] ?? null,
-                'to'   => $mail['to'],
-            ]);
-
-            return;
-        }
-
-        // Worth recording even though nobody is waiting on it: a site whose
-        // auto replies are failing is a site whose notifications probably are
-        // too, and this is the half nobody notices.
-        Logs::error('auto-reply', 'Auto reply could not be sent.', [
-            'form' => $form['id'] ?? null,
-            'to'   => $mail['to'],
-        ]);
+    /**
+     * Paragraphs a body that arrived without any.
+     *
+     * The message is written in an editor that produces paragraphs, but its
+     * translation is typed into a box on the translations screen that holds
+     * plain text — so a reply somebody wrote as three paragraphs went out in
+     * another language as one unbroken block.
+     *
+     * Decided on the template and applied to the result: {all_fields} expands
+     * to blocks of its own, which would make any template look marked up, and
+     * paragraphing before the tokens are in would wrap those blocks in a
+     * paragraph of ours.
+     *
+     * @param string $template Wording as translated, before substitution.
+     * @param string $body     The same after it.
+     */
+    private static function paragraphs(string $template, string $body): string
+    {
+        return Strings::hasBlocks($template) ? $body : wpautop($body);
     }
 
     /**

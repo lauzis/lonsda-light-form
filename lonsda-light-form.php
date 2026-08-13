@@ -3,7 +3,7 @@
  * Plugin Name: Lonsda Light Form
  * Plugin URI:  https://github.com/lauzis/lonsda-light-form
  * Description: Lightweight Carbon Fields form builder.
- * Version:     0.21.0
+ * Version:     0.28.1
  * Author:      Aivars Lauzis
  * Text Domain: lonsda-light-form
  * Domain Path: /languages
@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('LLF_VERSION', '0.21.0');
+define('LLF_VERSION', '0.28.1');
 define('LLF_DIR', plugin_dir_path(__FILE__));
 define('LLF_URL', plugin_dir_url(__FILE__));
 define('LLF_SLUG', 'lonsda-light-form');
@@ -112,6 +112,21 @@ add_action('admin_menu', static function (): void {
         ['\LonsdaLightForm\Admin', 'renderTests']
     );
 
+    // Only when there is something to read: logging off with nothing written
+    // is a menu entry that leads to an empty page. It stays while old files
+    // remain, since switching logging off is often exactly when somebody wants
+    // to look at what it caught.
+    if (\LonsdaLightForm\Logs::hasSomethingToShow()) {
+        add_submenu_page(
+            LLF_SLUG,
+            __('Logs', 'lonsda-light-form'),
+            __('Logs', 'lonsda-light-form'),
+            'manage_options',
+            LLF_SLUG . '-logs',
+            ['\LonsdaLightForm\Admin', 'renderLogs']
+        );
+    }
+
     add_submenu_page(
         LLF_SLUG,
         __('Help', 'lonsda-light-form'),
@@ -129,8 +144,10 @@ add_action('admin_post_llf_export', ['\LonsdaLightForm\Admin', 'handleExport']);
 add_action('admin_post_llf_import', ['\LonsdaLightForm\Admin', 'handleImport']);
 add_action('admin_post_llf_recaptcha_test', ['\LonsdaLightForm\Admin', 'handleRecaptchaTest']);
 add_action('admin_post_llf_test_mail', ['\LonsdaLightForm\Admin', 'handleTestMail']);
+add_action('admin_post_llf_clear_logs', ['\LonsdaLightForm\Admin', 'handleClearLogs']);
 add_action('admin_enqueue_scripts', ['\LonsdaLightForm\Admin', 'enqueueSettings']);
 add_action('admin_enqueue_scripts', ['\LonsdaLightForm\Admin', 'enqueueFormEditor']);
+add_action('admin_enqueue_scripts', ['\LonsdaLightForm\Admin', 'enqueueTranslations']);
 add_action('add_meta_boxes_' . \LonsdaLightForm\Forms::POST_TYPE, ['\LonsdaLightForm\Admin', 'registerPlaceholderBox']);
 
 \LonsdaLightForm\Translations::init();
@@ -143,6 +160,7 @@ add_action('add_meta_boxes_' . \LonsdaLightForm\Forms::POST_TYPE, ['\LonsdaLight
 \LonsdaLightForm\Submission::init();
 \LonsdaLightForm\Shortcode::init();
 \LonsdaLightForm\Block::init();
+\LonsdaLightForm\Styles::init();
 
 // Applied on every request, but the runner returns immediately once there is
 // nothing outstanding.

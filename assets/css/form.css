@@ -1,0 +1,101 @@
+/**
+ * Default styles for a Lonsda form.
+ *
+ * Deliberately small. A theme owns how a form looks — its inputs, its button,
+ * its spacing — and a plugin that restyles all of that is a plugin somebody has
+ * to fight. What a theme almost never covers is the part that only exists when
+ * something has gone right or wrong: the two notices above the form, and a
+ * field that came back rejected. Those have to be legible on a site nobody
+ * styled for them, so those are what this covers and nothing else.
+ *
+ * Everything is a single class, scoped under .llf-form, with no !important
+ * anywhere: a theme rule of the same weight, written later, wins. The colours
+ * are custom properties, so overriding all of them is one rule rather than
+ * seven.
+ *
+ * Switched off under Settings → Appearance, which stops it being enqueued at
+ * all rather than loading it and overriding it.
+ */
+
+.llf-form {
+	--llf-error-border: #d63638;
+	--llf-error-text: #8a1f21;
+	--llf-error-background: #fcf0f1;
+
+	--llf-success-border: #00a32a;
+	--llf-success-text: #0a4b18;
+	--llf-success-background: #edfaef;
+
+	--llf-notice-radius: 3px;
+	--llf-notice-gap: 1em;
+}
+
+/* ---------------------------------------------------------------- notices */
+
+.llf-form .llf-notice {
+	margin: 0 0 var(--llf-notice-gap);
+	padding: 0.75em 1em;
+	/* On the left rather than all round: a bar reads as a status at a glance
+	   and survives a theme that has its own idea about borders. */
+	border-left: 4px solid transparent;
+	border-radius: var(--llf-notice-radius);
+	line-height: 1.5;
+}
+
+.llf-form .llf-notice--success {
+	border-left-color: var(--llf-success-border);
+	background: var(--llf-success-background);
+	color: var(--llf-success-text);
+}
+
+.llf-form .llf-notice--error {
+	border-left-color: var(--llf-error-border);
+	background: var(--llf-error-background);
+	color: var(--llf-error-text);
+}
+
+/* The confirmation is written in a visual editor, so it arrives wrapped in
+   paragraphs of its own, whose margins would otherwise push the box open. */
+.llf-form .llf-notice > :first-child {
+	margin-top: 0;
+}
+
+.llf-form .llf-notice > :last-child {
+	margin-bottom: 0;
+}
+
+/* Nothing follows the notice when the form withdraws after sending, so the
+   gap underneath it is a gap before nothing. */
+.llf-form--sent .llf-notice {
+	margin-bottom: 0;
+}
+
+/* ----------------------------------------------------------------- fields */
+
+/*
+ * Both a border colour and a ring. The border alone says nothing on a theme
+ * whose inputs have no border, which is common enough that a rejected field
+ * would look exactly like an accepted one on those sites.
+ */
+.llf-form .llf-input--error,
+.llf-form .llf-input--error:focus {
+	border-color: var(--llf-error-border);
+	box-shadow: 0 0 0 1px var(--llf-error-border);
+}
+
+.llf-form .llf-error {
+	display: block;
+	margin-top: 0.35em;
+	color: var(--llf-error-text);
+	font-size: 0.875em;
+	line-height: 1.4;
+}
+
+/*
+ * The asterisk is the one thing here that is not an error, so it is not given
+ * the error colour: a form nobody has submitted yet should not look as though
+ * five things are already wrong with it.
+ */
+.llf-form .llf-required {
+	opacity: 0.7;
+}

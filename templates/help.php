@@ -17,10 +17,10 @@ $llf_settings_url    = admin_url('admin.php?page=' . LLF_SLUG . '-settings');
 
     <h2><?php esc_html_e('Why this plugin exists', 'lonsda-light-form'); ?></h2>
     <p style="max-width:860px;">
-        <?php esc_html_e('This site ran on Gravity Forms, which is an excellent plugin — nothing here is a complaint about it. When the licence came up for renewal we looked at what we were actually using, and it was a very small part of what it offers: receive a contact form, store what was submitted, send an email about it.', 'lonsda-light-form'); ?>
+        <?php esc_html_e('Our site ran on Gravity Forms — an excellent plugin, and nothing here is a complaint about it. When the licence came up for renewal we looked at what was actually being used, and it was a very small part of what it offers: receive a contact form, store what was submitted, send an email about it.', 'lonsda-light-form'); ?>
     </p>
     <p style="max-width:860px;">
-        <?php esc_html_e('Conditional logic, multi-page forms, payment gateways, calculations, the integrations directory — all real and well built, and none of it in use here. So this does the part we needed and nothing else. It is not a replacement for Gravity Forms and should not be chosen over it by anyone using more than a fraction of it; the table below makes that easy to check.', 'lonsda-light-form'); ?>
+        <?php esc_html_e('Conditional logic, multi-page forms, payment gateways, calculations, the integrations directory — all real and well built, and none of it in use on our site. So this plugin does that narrow part and nothing else. It is not a replacement for Gravity Forms and should not be chosen over it by anyone using more than a fraction of it; the table below makes that easy to check.', 'lonsda-light-form'); ?>
     </p>
     <table class="widefat striped" style="max-width:860px;margin-bottom:20px;">
         <thead>
@@ -44,7 +44,7 @@ $llf_settings_url    = admin_url('admin.php?page=' . LLF_SLUG . '-settings');
         </tbody>
     </table>
     <p style="max-width:860px;">
-        <?php esc_html_e('The right-hand column is why Gravity Forms costs what it does, and it is worth the money to anyone using it. If you need any of that, buy it — this is not a substitute. The point of the table is the left-hand column: here, that narrow list was the whole requirement.', 'lonsda-light-form'); ?>
+        <?php esc_html_e('The right-hand column is why Gravity Forms costs what it does, and it is worth the money to anyone using it. If you need any of that, buy it — this is not a substitute. The point of the table is the left-hand column: for our project, that narrow list was the whole requirement.', 'lonsda-light-form'); ?>
     </p>
 
     <h2><?php esc_html_e('Getting started', 'lonsda-light-form'); ?></h2>
@@ -380,7 +380,13 @@ $llf_settings_url    = admin_url('admin.php?page=' . LLF_SLUG . '-settings');
         ?>
     </p>
     <p style="max-width:860px;">
-        <?php esc_html_e('The list is grouped — form fields, submit button, confirmation, notification, auto reply — so it is clear which strings a visitor actually reads and which only you do.', 'lonsda-light-form'); ?>
+        <?php esc_html_e('The list is grouped — form fields, submit button, confirmation, notification, auto reply, general texts — so it is clear which strings a visitor actually reads and which only you do.', 'lonsda-light-form'); ?>
+    </p>
+    <p style="max-width:860px;">
+        <?php esc_html_e('General texts are the plugin\'s own wording rather than any form\'s: "This field is required.", "Please enter a valid email address.", what the form says above itself after a submission, and the Yes or No a ticked box becomes in an email. They are the same on every form, so the form picker has an entry for them on their own. Without translating these, a site could translate every label it had and still tell people a field was required in English.', 'lonsda-light-form'); ?>
+    </p>
+    <p style="max-width:860px;">
+        <?php esc_html_e('The placeholders are listed beside the boxes, and clicking one copies it. A translated subject line still has {site_name} in it, and a token retyped with a dash instead of an underscore is replaced by nothing — it simply arrives in the email as it was typed, with no clue as to why.', 'lonsda-light-form'); ?>
     </p>
     <ul style="list-style:disc;padding-left:22px;max-width:860px;">
         <li><?php esc_html_e('An empty box means untranslated, and the original wording is shown instead. Nothing ever renders as a bare key.', 'lonsda-light-form'); ?></li>
@@ -447,6 +453,9 @@ $llf_settings_url    = admin_url('admin.php?page=' . LLF_SLUG . '-settings');
     <p style="max-width:860px;">
         <?php esc_html_e('Both buttons read what was last saved, so save the form before testing a change. A button is disabled when its message is not configured, and says what would switch it on.', 'lonsda-light-form'); ?>
     </p>
+    <p style="max-width:860px;">
+        <?php esc_html_e('The Language picker sends the message as a visitor reading in that language would receive it, so you can check a translation without switching the site or filling the form in yourself. It applies to the notification too, even though a real notification follows the language of whoever triggered it. Anything that arrives still in English simply has no translation yet — the Translations screen is where to add it.', 'lonsda-light-form'); ?>
+    </p>
 
     <h2><?php esc_html_e('Auto reply', 'lonsda-light-form'); ?></h2>
     <p style="max-width:860px;">
@@ -461,10 +470,30 @@ $llf_settings_url    = admin_url('admin.php?page=' . LLF_SLUG . '-settings');
     <p style="max-width:860px;">
         <?php esc_html_e('It takes the same placeholders as a notification and goes out as both an HTML message and a plain-text one, so a mail client that shows text gets the paragraphs and not one unbroken block. Keep it short, and leave out anything the visitor did not tell you — their IP address has no business in a message addressed to them.', 'lonsda-light-form'); ?>
     </p>
+    <p style="max-width:860px;">
+        <?php esc_html_e('It is sent in the language the form was submitted in — the language of the page on a multilingual site — and that is taken from the submission itself rather than from whatever is sending the reply. So a message submitted in Latvian is answered in Latvian even when the reply leaves later or from elsewhere: a retry, a scheduled task, or you resending it from here. Translate the subject and message under Translations and the right one goes out on its own.', 'lonsda-light-form'); ?>
+    </p>
+    <p style="max-width:860px;">
+        <?php esc_html_e('The notification to you is not switched this way. It goes out in whatever language the site was serving, on the grounds that it is read by whoever runs the site rather than by the visitor.', 'lonsda-light-form'); ?>
+    </p>
+
+    <h2><?php esc_html_e('Styles', 'lonsda-light-form'); ?></h2>
+    <p style="max-width:860px;">
+        <?php esc_html_e('The plugin brings a small stylesheet of its own, switched on under Settings → Appearance, and loaded only on pages that actually have a form. It covers three things and nothing else: the confirmation, the failure message, and a field that came back rejected. How the inputs and the button look stays the theme\'s business.', 'lonsda-light-form'); ?>
+    </p>
+    <p style="max-width:860px;">
+        <?php esc_html_e('That split is deliberate. A theme has an opinion about a text box, and a plugin arguing with it is a nuisance; what no theme has ever seen is the markup that only appears after a submission — which is why, without this, a rejected field looked exactly like a correct one at the very moment the form had something to tell somebody.', 'lonsda-light-form'); ?>
+    </p>
+    <p style="max-width:860px;">
+        <?php esc_html_e('The Appearance tab shows a live sample of all three, drawn by the same code a real form is drawn with. Untick the box and the stylesheet is not loaded at all, leaving the classes below for a theme to style as it likes. Existing sites get the styles switched on when they update, so if your forms suddenly look different, that box is why.', 'lonsda-light-form'); ?>
+    </p>
 
     <h2><?php esc_html_e('Styling a rejected submission', 'lonsda-light-form'); ?></h2>
     <p style="max-width:860px;">
         <?php esc_html_e('When a submission is rejected the form comes back with the answers still in it and the offending fields marked, so a theme can colour them with CSS alone.', 'lonsda-light-form'); ?>
+    </p>
+    <p style="max-width:860px;">
+        <?php esc_html_e('That holds whatever the reason. A field that failed validation, a tripped spam check, or a form left open so long that it had to be sent again — in every case the visitor gets their answers back rather than an empty form, and only a submission that actually went through clears them. A form sent again after sitting open too long carries a fresh nonce, so the second attempt works.', 'lonsda-light-form'); ?>
     </p>
     <table class="widefat striped" style="max-width:860px;margin-bottom:12px;">
         <tbody>
@@ -522,7 +551,7 @@ $llf_settings_url    = admin_url('admin.php?page=' . LLF_SLUG . '-settings');
         <?php
         printf(
             /* translators: %s: link to the settings page */
-            esc_html__('Switch logging on under %s to record what the plugin did — forms saved or deleted, schema changes applied. Failures always reach PHP\'s error log regardless of the setting. The Logs page appears in the menu only while logging is on.', 'lonsda-light-form'),
+            esc_html__('Switch logging on under %s to record what the plugin did — forms saved or deleted, mail sent, schema changes applied. Failures always reach PHP\'s error log regardless of the setting. The log itself is read under Lonsda Forms → Logs: the days it covers, the most recent entries newest first, and a button to clear them. That entry appears once there is something to read and stays while old files remain, so switching logging off does not take away what it already caught.', 'lonsda-light-form'),
             '<a href="' . esc_url($llf_settings_url) . '">' . esc_html__('Settings', 'lonsda-light-form') . '</a>'
         );
         ?>

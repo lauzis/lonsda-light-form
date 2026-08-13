@@ -8,14 +8,14 @@ components the other plugins in this account use.
 
 ## Why it exists
 
-This site ran on Gravity Forms, which is an excellent plugin. Nothing here is a
+Our site ran on Gravity Forms, which is an excellent plugin. Nothing here is a
 complaint about it.
 
 When its licence came up for renewal we looked at what we were actually using,
 and it was a very small part of what it offers: receive a contact form, store
 what was submitted, send an email about it. Conditional logic, multi-page forms,
 payment gateways, calculations, the integrations directory — all of it real,
-well built, and none of it in use on this site. Renewing would have paid for a
+well built, and none of it in use on our site. Renewing would have paid for a
 great deal we had never touched.
 
 So this does the part we needed. It is not a replacement for Gravity Forms and
@@ -43,8 +43,8 @@ nothing in it is trying to sell you the paid version.
 
 The right-hand column is why Gravity Forms costs what it does, and it is worth
 the money to anyone using it. If you need any of that, buy it — this is not a
-substitute. The point of the table is the left-hand column: on this site, that
-narrow list was the whole requirement.
+substitute. The point of the table is the left-hand column: for our project,
+that narrow list was the whole requirement.
 
 What replaced the integrations is one action. A submission is handed to
 `lonsda_form_submitted` and the theme decides what it means — here, adding the
@@ -64,7 +64,7 @@ site needed.
 - **Translations** — labels and buttons carry keys, translated in the browser or through `.po`/`.mo` files, with WPML supported directly.
 - **Spam** — honeypot, minimum completion time, and optional per-form reCAPTCHA v2 with a test on the settings page.
 - **Import and export** — form definitions as JSON, all or a selection.
-- **Self tests** — eight scenarios, 81 assertions, run against the live install and cleaning up after themselves.
+- **Self tests** — ten scenarios, around 145 assertions, run against the live install and cleaning up after themselves.
 - **Hooks** — every submission is handed on with consistent metadata, so a theme can do anything this does not.
 
 ## Building a form
@@ -139,6 +139,27 @@ a second submission. Switch it off to leave the form in place.
 A form saved before these settings existed has neither stored. Both fall back to
 the shipped default, so the behaviour is the same as if the defaults had been
 chosen deliberately.
+
+### A submission that was not accepted
+
+**Whatever the reason, the form comes back filled in.** Nobody retypes anything:
+a failed validation redisplays every answer and marks only the fields at fault,
+a tripped spam check hands the whole lot back, and so does a form that had been
+open too long for its nonce to still verify — the case where the loss would hurt
+most, since it is nobody's mistake and can swallow a message somebody spent ten
+minutes on. That last one redisplays with a fresh nonce, so sending again works
+rather than failing the same way.
+
+The answers are read and sanitised *before* the nonce is checked, which is what
+makes the expired case possible. They are unverified at that point, so they are
+sanitised by field type exactly as an accepted submission's are, kept only for
+fields the form actually has, and escaped again by the renderer on the way out —
+a form to press send on, not content the page has taken on trust. Nothing is
+stored and no hook fires: a submission that failed the nonce or a spam check
+still reaches neither `lonsda_form_submitted` nor `lonsda_form_rejected`.
+
+A submission that *succeeded* is the one case the answers are dropped. Leaving
+them under a "thank you" reads as though nothing was sent.
 
 ## Notifications
 
@@ -258,7 +279,7 @@ does not opt in to any of it.
 | `form_id` | The form that was submitted. |
 | `post_id` | The post or page it was submitted from, or `null` when there is no post — a form in a footer or widget, say. Null rather than `0`, which would read as a real id. |
 | `language` | Language code of that post — a bare `lv`. What WPML and Polylang natively report, and what groups a submission with others like it. |
-| `locale` | The same language in full, `lv_LV`. Resolved *from the language*, not read off the request, so an admin viewing the entry in English does not change the answer. This is the form the Translations screen names its files in, and the only one that tells `en_US` from `en_GB`. |
+| `locale` | The same language in full, `lv_LV`. Resolved *from the language*, not read off the request, so an admin viewing the entry in English does not change the answer. This is the form the Translations screen names its files in, the only one that tells `en_US` from `en_GB`, and the one the [auto reply is sent in](#which-language-it-is-sent-in). |
 | `time` | Unix timestamp. |
 | `submitted_at` | The same moment as `Y-m-d H:i:s` in UTC, for anything that has to be read by a person. UTC so it does not shift when the site's timezone setting changes. |
 | `ip` | `REMOTE_ADDR`. |
@@ -276,7 +297,8 @@ add_filter( 'lonsda_form_context', function ( $context ) {
 } );
 ```
 
-The same filter adds keys of your own. Note that a submission rejected for a
+The same filter adds keys of your own — and changing `locale` there changes the
+language the auto reply goes out in. Note that a submission rejected for a
 failed nonce or a tripped spam check does not reach either hook at all — it is
 logged and dropped.
 
@@ -312,10 +334,17 @@ two fields both labelled `Email` rarely do.
 The prefix is the form's **Text ID**, on the Fields tab:
 
 ```
+contact-form__form_title
 contact-form__success_message
 contact-form__notification_subject     contact-form__notification_message
 contact-form__auto_reply_subject       contact-form__auto_reply_message
 ```
+
+The title is in that list because `{form_title}` puts it in front of whoever
+the mail is addressed to. It is the post's title rather than one of the form's
+settings, which is how it stayed English while everything around it was
+translated — a Latvian subject line with the word *Contacts* in the middle of
+it.
 
 Lower case, dashes for spaces, accents folded — anything else typed into the box
 is converted to that on save, so the field agrees with the keys rather than
@@ -363,6 +392,26 @@ labels are already in the right language needs no keys.
 On a multilingual site the form editor says this once, dismissibly, because the
 decision is cheap now and expensive later.
 
+### The plugin's own wording
+
+The messages a visitor reads that were never typed into a form — *This field is
+required.*, *Please enter a valid email address.*, *Please check the highlighted
+fields.*, the Yes and No a ticked box becomes in an email — are listed on the
+Translations screen too, under **General texts**, and the form picker has an
+entry for them on their own.
+
+They used to be plain `__()` calls against the plugin's text domain, which put
+them out of reach of the screen where everything else is translated: a site
+could translate every label and still tell people "This field is required." in
+English, because the only route was a `.po` inside a folder WordPress replaces
+on every update. They now go through the same layer a form's own strings do —
+WPML first, then the form-content MO — keyed `general__error_required` and the
+like, with the English as the msgid so an untranslated one still reads as a
+sentence.
+
+Only what a visitor can see. Admin wording is translated the ordinary way;
+whoever reads it can also read a `.po`.
+
 ### Delivering the translations
 
 Two routes, tried in that order.
@@ -377,11 +426,38 @@ Translations** works from the stored forms instead.
 
 Translate in the browser: pick a language and a form, fill in the boxes, save.
 The list is grouped — form fields, submit button, confirmation message,
-notification email, auto reply email — because a flat list of a dozen keys gives
-no sense of which of them a visitor actually reads.
+notification email, auto reply email, general texts — because a flat list of a
+dozen keys gives no sense of which of them a visitor actually reads.
+
+The placeholders are listed beside the boxes, copyable, for the same reason they
+are listed beside the form editor: a translation of a subject line has
+`{site_name}` in it, and a token retyped as `{site-name}` passes every check
+there is and turns up in an email as a brace. Both panels are drawn from
+`Notifications::placeholderReference()` — one list, so a screen cannot name a
+token that does not exist, and a self test checks every listed token against
+what the substitution actually produces.
 Both a `.mo` and a `.po` are written, so a translation started here can be
 carried on in Poedit or handed to someone else, and one done elsewhere can be
 uploaded back. A `.po` is compiled to `.mo` on the way in, so either will do.
+
+A message body — either email, or the confirmation — gets a textarea rather
+than a one-line box, because that is what it is. It used to get a single line
+like everything else, which meant a translator could not type a paragraph break
+even if they wanted one, and a message written as three paragraphs went out in
+translation as one unbroken block. Markup typed there is kept; a translation
+written as plain paragraphs is run through `wpautop()` on the way out, after the
+placeholders are substituted so that `{all_fields}`, which is paragraphs
+already, is not wrapped in one more.
+
+**Line endings are normalised to `\n`** in everything offered for translation.
+A textarea submits CRLF, so that is what a multi-line message is stored as —
+but WordPress standardises line endings when it reads a `.po` (`PO::unpoify()`,
+deliberately), so a translation that arrived through the POT was keyed to the
+LF form and never matched the CRLF original. Every multi-line message
+translated that way was silently ignored while the file looked perfectly
+correct. The msgid is now written normalised, and a lookup that misses tries
+the normalised form before giving up, so files written the old way keep
+working.
 
 Saving merges rather than replaces. The editor shows one form at a time, so
 treating a save as "these are all the translations there are" would wipe every
@@ -415,10 +491,55 @@ WPML is consulted first and gettext fills in whatever it has no translation for.
 Anything else can hook `lonsda_form_string`, which receives the text, its key
 and the context.
 
+## Styles
+
+The plugin ships one small stylesheet, `assets/css/form.css`, switched on under
+**Settings → Appearance** and enqueued only on a page that actually renders a
+form.
+
+**It covers three things and stops:** the confirmation notice, the failure
+notice, and a field that came back rejected — border, ring and message. The form
+itself is left alone. A theme owns how inputs and buttons look, and a plugin
+that restyles those is a plugin somebody has to fight. What no theme has an
+opinion about is markup it has never seen, which is exactly what appears after a
+submission: on an unstyled site a rejected field looked identical to an accepted
+one, at the one moment the form had something to say.
+
+Every rule is a single class scoped under `.llf-form`, with no `!important`
+anywhere, so a theme rule of the same weight written later simply wins. The
+colours are custom properties, so recolouring the lot is one rule:
+
+```css
+.llf-form {
+    --llf-error-border: #b32d2e;
+    --llf-error-text: #7a1d1e;
+    --llf-error-background: #fdf3f3;
+    --llf-success-border: #1e8c3a;
+    --llf-success-text: #0d4a1c;
+    --llf-success-background: #f0faf2;
+}
+```
+
+Unticking the box stops the file being enqueued at all, rather than loading it
+and overriding it. The handle is `llf-form`, registered on `wp_enqueue_scripts`,
+so a theme can also `wp_dequeue_style()` it or register its own file under the
+same handle.
+
+The Appearance tab shows a live sample of all three states — drawn by the same
+renderer, with the same wording, that a real form uses, so it cannot quietly
+stop matching what a visitor sees. It is shown whether the styles are on or off:
+knowing what ticking the box would do is the point of looking.
+
+**On update, existing sites get these styles switched on.** A site that has
+already styled its forms may see them change; unticking the box restores exactly
+what was there before.
+
 ## Styling a rejected submission
 
 A submission that fails validation comes back with the answers intact and the
 offending fields marked, so a stylesheet can colour them without any JavaScript.
+These are the classes the built-in styles use, and the ones to target when they
+are switched off.
 
 | Class | On |
 | --- | --- |
@@ -465,6 +586,19 @@ built its own message would only prove the test works.
   switch it on. When a send produces nothing, the reason is reported rather
   than "nothing happened".
 
+There is a **Language** picker beside the address: the site's own, or any
+language the site offers. Choosing one sends the message as a visitor reading
+in that language would receive it — the whole request is switched, so it applies
+to the notification as well as the reply, even though only the reply follows the
+submission's language in normal use. Anything still in English in what arrives
+has no translation yet rather than a broken one, and the status line says which
+language it went out in.
+
+The locale is checked against what the site actually offers before anything is
+switched. It arrives from a browser and decides the language of the whole
+request, so being well-formed is not enough; a locale with a translation file
+installed counts too, since the file is the site saying it means something.
+
 Both read what was **last saved**, so save before testing a change.
 
 ## Auto reply
@@ -484,6 +618,34 @@ is logged.
 
 Same placeholders as a notification, passed through `wp_kses_post()` on the way
 out, and sent as **both** an HTML part and a plain-text one.
+
+### Which language it is sent in
+
+**The one the form was submitted in.** That language is recorded with the
+submission — the page's, under WPML or Polylang; the site's where neither is
+running — and the reply switches to it before a word of the message is built:
+the wording and its translation, the shipped defaults behind an empty box, the
+`Yes` or `No` a ticked checkbox becomes, and whatever `lonsda_form_auto_reply`
+adds. The language is put back afterwards, in a `finally`, so a filter that
+throws cannot leave the rest of the request speaking Latvian.
+
+On the page itself this changes nothing: the request is already in that
+language. It matters the moment the reply is sent from anywhere else — a queue,
+a retry, WP-Cron, an admin screen resending one — where the request has no
+language worth having and the recorded one is all that still knows who the
+message is being written to. It is also why the language is read back from the
+submission rather than from `determine_locale()`, which answers for whoever is
+running the code rather than for whoever is being written to.
+
+A site that never installed the WordPress translation for that language still
+gets the form's own wording translated. Core will not switch to a locale it has
+no files for; the form strings are in a directory of their own and are loaded
+for the language regardless, so the part a visitor actually reads arrives
+translated either way.
+
+The **notification** is not switched — it goes out in whatever language the
+request is in. It is read by whoever runs the site rather than by the visitor,
+so the submission's language is not obviously the right answer for it.
 
 The text part matters: `wp_mail()` sends a single body, so declaring it HTML and
 stopping there means a client showing plain text — or a mail setup that strips
@@ -536,13 +698,34 @@ The test reads what is *stored*, so the settings have to be saved first.
 | Tab | What is on it |
 | --- | --- |
 | Delivery | Site-wide defaults for where submissions go. |
+| Appearance | Whether to use the built-in styles, and a sample of what they do. |
 | Spam | Honeypot and minimum completion time. |
 | Google reCAPTCHA v2 | The two keys, links to Google's console, and a live test. |
 | Import / Export | Form definitions as JSON. |
-| Logging | Whether the plugin keeps a log, shared with the other plugins here. |
+| Logging | Whether the plugin keeps a log, shared with the other plugins here. The log itself is a screen of its own — settings are what the plugin will do, a log is what it did. |
 
 The settings page is rendered by the shared package from `config/settings.json`,
 so it looks and behaves like every other plugin in this account.
+
+**Lonsda Forms → Logs** shows what was recorded: the days covered, the most
+recent entries newest first, and a button to clear them.
+
+A **test** send is logged with the message itself — subject, body, headers, the
+language it went out in, and whether there was a translation file for that
+language at all. That is the one send where logging the whole thing is right:
+the answers in it are invented, an administrator asked for it deliberately, and
+the reason to press the button is usually to find out why what arrives is not
+what was expected. A real submission is logged without its contents — that is
+somebody's message. The auto reply records the language it used and whether a
+translation file existed, which is what lies behind almost every "why did this
+arrive in English", and nothing of what it said. The menu entry appears
+once there is something to read and stays while old files remain — switching
+logging off should not take away the log you switched it on to get.
+
+Reading, listing and clearing are the shared package's `Logs\Viewer`, since
+every plugin here writes the same log and would otherwise grow its own reader
+for it. The page, the menu entry and the capability behind clearing are this
+plugin's.
 
 Two of those tabs are panels rather than fields, and both are driven by
 `assets/js/settings.js` rather than by script in the markup. Carbon Fields
@@ -590,6 +773,9 @@ capability that is not what anyone assumed.
 | Field validation | Required, email, pattern, maximum length, required checkbox, and that the rules hold for a request that never saw the form. |
 | Stored entries | Storage, status, the unread count, filtering, CSV, deletion. |
 | Notification emails | Recipients, placeholders, Reply-To, and that nothing is actually sent. |
+| Auto reply | Off by default, the address it picks, placeholders, the text part, stripped script, and that the submission's own language is the one it is answered in — and is put back afterwards. |
+| Placeholders and translation | The two together: every token replaced in the site's own language, a full example translation of one form, a translation that moves the tokens somewhere else, the words a token stands for translated with it, and a number filled into a translated message rather than before it. |
+| Testing tab | The recipient swap, the `TEST` mark, filled-in answers, a refused address, and that a test is not stored as an entry. |
 | Translations | Collection, the POT, saving, merging, clearing, and that no language is offered twice. |
 | Clean up leftovers | Removes anything an interrupted run left behind. |
 
@@ -598,7 +784,8 @@ that would email the administrator — so every send is cancelled for the durati
 of a run, at a priority nothing else uses. A full run makes zero `wp_mail()`
 calls, which is asserted rather than assumed.
 
-The translation scenario writes to the locale `zz_ZZ`, which no site serves.
+The scenarios that need a translation write to the locale `zz_ZZ`, which no site
+serves.
 Using a real one would put test strings in front of visitors, and cleaning up
 afterwards would delete a translation somebody had actually made.
 

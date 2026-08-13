@@ -89,14 +89,32 @@ class Submission
             return;
         }
 
+        $fields = $form['settings']['fields'] ?? [];
+
+        // Read before the nonce is checked rather than after, so a form that
+        // expired can be handed back with the answers still in it. A nonce ages
+        // out after half a day, and a page can sit open longer than that or be
+        // served from a cache older still; losing a long message to it and
+        // being told to try again is the worst thing this form does.
+        //
+        // These are unverified at this point, which is why they are sanitised
+        // the same way whatever happens next, and why the renderer escapes
+        // every one of them again on the way out. What comes back is a form to
+        // press send on, not content the page has taken on trust.
+        $values = self::values($fields);
+        $errors = [];
+
         $nonce = isset($_POST['llf_nonce']) ? sanitize_text_field(wp_unslash($_POST['llf_nonce'])) : '';
 
         if (!wp_verify_nonce($nonce, 'llf_submit_' . $form_id)) {
             self::$result = [
                 'form_id' => $form_id,
                 'errors'  => [],
-                'values'  => [],
-                'notice'  => __('That form had expired. Please try again.', 'lonsda-light-form'),
+                'values'  => $values,
+                // Says what to do next, and that nothing was lost doing it. The
+                // form redisplays with a nonce of its own, so pressing send
+                // again works rather than failing the same way.
+                'notice'  => Strings::general('notice_expired'),
                 'success' => false,
             ];
 
@@ -105,28 +123,11 @@ class Submission
             return;
         }
 
-        $raw    = isset($_POST['llf']) && is_array($_POST['llf']) ? wp_unslash($_POST['llf']) : [];
-        $fields = $form['settings']['fields'] ?? [];
-        $values = [];
-        $errors = [];
-
         foreach ($fields as $field) {
-            $name  = $field['name'];
-            $given = $raw[$name] ?? null;
-
-            if ('checkbox' === $field['type']) {
-                $value = (bool) $given;
-            } elseif ('textarea' === $field['type']) {
-                $value = sanitize_textarea_field((string) $given);
-            } else {
-                $value = sanitize_text_field((string) $given);
-            }
-
-            $values[$name] = $value;
-            $error         = self::validate($field, $value);
+            $error = self::validate($field, $values[$field['name']] ?? '');
 
             if ('' !== $error) {
-                $errors[$name] = $error;
+                $errors[$field['name']] = $error;
             }
         }
 
@@ -139,7 +140,7 @@ class Submission
                 'form_id' => $form_id,
                 'errors'  => [],
                 'values'  => $values,
-                'notice'  => __('Your message could not be sent. Please try again.', 'lonsda-light-form'),
+                'notice'  => Strings::general('notice_spam'),
                 'success' => false,
             ];
 
@@ -147,7 +148,7 @@ class Submission
         }
 
         if (FormBuilder::recaptchaActive($form['settings'] ?? []) && !self::recaptchaPassed()) {
-            $errors['_recaptcha'] = __('Please confirm you are not a robot.', 'lonsda-light-form');
+            $errors['_recaptcha'] = Strings::general('error_recaptcha');
         }
 
         /** @var array $errors */
@@ -167,7 +168,7 @@ class Submission
                 'form_id' => $form_id,
                 'errors'  => $errors,
                 'values'  => $values,
-                'notice'  => __('Please check the highlighted fields.', 'lonsda-light-form'),
+                'notice'  => Strings::general('notice_errors'),
                 'success' => false,
             ];
 
@@ -185,9 +186,44 @@ class Submission
             // Wording lives on the form and is resolved by the renderer, which
             // is the only place that has the form definition to hand. This is
             // the fallback for anything reading the result directly.
-            'notice'  => __('Thank you — your message has been sent.', 'lonsda-light-form'),
+            'notice'  => Strings::general('notice_sent'),
             'success' => true,
         ];
+    }
+
+    /**
+     * The submitted answers, sanitised by what each field is.
+     *
+     * Every field of the form gets an entry, whether or not anything was sent
+     * for it: the form is redisplayed from this, and a field left out here
+     * would come back empty for a visitor who did fill it in.
+     *
+     * Fields the form does not have are dropped rather than carried along. The
+     * only thing reading this is the form itself, and a submission naming an
+     * input that does not exist is not answering a question anyone asked.
+     *
+     * @param array $fields Normalised field definitions.
+     * @return array Field name => value; bool for a checkbox, string otherwise.
+     */
+    private static function values(array $fields): array
+    {
+        $raw    = isset($_POST['llf']) && is_array($_POST['llf']) ? wp_unslash($_POST['llf']) : [];
+        $values = [];
+
+        foreach ($fields as $field) {
+            $name  = (string) $field['name'];
+            $given = $raw[$name] ?? null;
+
+            if ('checkbox' === $field['type']) {
+                $values[$name] = (bool) $given;
+            } elseif ('textarea' === $field['type']) {
+                $values[$name] = sanitize_textarea_field((string) $given);
+            } else {
+                $values[$name] = sanitize_text_field((string) $given);
+            }
+        }
+
+        return $values;
     }
 
     /**
@@ -203,7 +239,7 @@ class Submission
 
         if ('checkbox' === $field['type']) {
             return ($required && !$value)
-                ? __('This box must be ticked.', 'lonsda-light-form')
+                ? Strings::general('error_checkbox')
                 : '';
         }
 
@@ -212,19 +248,17 @@ class Submission
         if ('' === trim($value)) {
             // An empty optional field skips the remaining rules: an unanswered
             // question is not a badly answered one.
-            return $required ? __('This field is required.', 'lonsda-light-form') : '';
+            return $required ? Strings::general('error_required') : '';
         }
 
         if (!empty($field['max_length']) && mb_strlen($value) > (int) $field['max_length']) {
-            return sprintf(
-                /* translators: %d: maximum number of characters */
-                __('Please use no more than %d characters.', 'lonsda-light-form'),
-                (int) $field['max_length']
-            );
+            // Substituted after translation, so a language that wants the
+            // number elsewhere in the sentence can put it there.
+            return sprintf(Strings::general('error_max_length'), (int) $field['max_length']);
         }
 
         if ('email' === ($field['validation'] ?? '') && !is_email($value)) {
-            return __('Please enter a valid email address.', 'lonsda-light-form');
+            return Strings::general('error_email');
         }
 
         if ('regex' === ($field['validation'] ?? '') && '' !== (string) $field['pattern']) {
@@ -245,7 +279,7 @@ class Submission
             }
 
             if (0 === $matched) {
-                return __('Please enter this in the expected format.', 'lonsda-light-form');
+                return Strings::general('error_pattern');
             }
         }
 

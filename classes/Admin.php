@@ -356,6 +356,137 @@ class Admin
         return (string) ob_get_clean();
     }
 
+    /**
+     * A sample of what the built-in styles do, on the settings page.
+     *
+     * Drawn with the same renderer and the same wording a real form uses, so
+     * the sample cannot quietly stop matching what a visitor is shown. The
+     * alternative — markup copied out of the renderer into here — is a sample
+     * that goes stale the first time either changes, which is worse than none.
+     *
+     * Shown whether or not the styles are switched on: knowing what ticking the
+     * box would do is the reason to look at this at all.
+     */
+    public static function stylesPreview(): string
+    {
+        // Not a <form>: this sits inside the settings page's own form, and one
+        // form inside another is neither valid nor recoverable. Only the class
+        // matters — the stylesheet targets that rather than the element.
+        $field = \LonsdaLightForm\Renderer::field(
+            [
+                'label'      => __('Email', 'lonsda-light-form'),
+                'name'       => 'preview',
+                'type'       => 'text',
+                'required'   => true,
+                'validation' => 'email',
+            ],
+            'not-an-email',
+            \LonsdaLightForm\Strings::general('error_email'),
+            // Disabled for the same reason: a live input here would be posted
+            // along with the settings.
+            ['disabled' => 'disabled']
+        );
+
+        ob_start();
+        ?>
+        <div class="llf-styles-preview">
+            <h3><?php esc_html_e('What they look like', 'lonsda-light-form'); ?></h3>
+
+            <p class="description">
+                <?php
+                echo \LonsdaLightForm\Styles::enabled()
+                    ? esc_html__('These three are in use on the front end. Everything else about the form is the theme\'s.', 'lonsda-light-form')
+                    : esc_html__('These are switched off, so a visitor sees none of it. This is what ticking the box above would give you.', 'lonsda-light-form');
+                ?>
+            </p>
+
+            <div class="llf-styles-sample">
+                <div class="llf-form">
+                    <div class="llf-notice llf-notice--success">
+                        <?php echo wp_kses_post(\LonsdaLightForm\FormBuilder::defaultSuccessMessage()); ?>
+                    </div>
+
+                    <div class="llf-notice llf-notice--error">
+                        <?php echo esc_html(\LonsdaLightForm\Strings::general('notice_errors')); ?>
+                    </div>
+
+                    <?php echo $field; // Escaped field by field by the renderer. ?>
+                </div>
+            </div>
+
+            <p class="description">
+                <?php esc_html_e('Each part is a class of its own — llf-notice--success, llf-notice--error, llf-input--error and llf-error — and the colours are custom properties on .llf-form, so a theme can recolour all of it with one rule instead of turning the lot off.', 'lonsda-light-form'); ?>
+            </p>
+
+            <style>
+                /* The sample's own frame. What is inside it is the real
+                   stylesheet, enqueued for this page like any other. */
+                .llf-styles-sample {
+                    max-width: 480px;
+                    margin: 12px 0;
+                    padding: 16px;
+                    border: 1px solid #dcdcde;
+                    border-radius: 4px;
+                    background: #fff;
+                }
+                .llf-styles-sample .llf-field { margin-bottom: 0; }
+                .llf-styles-sample .llf-input { width: 100%; }
+            </style>
+        </div>
+        <?php
+
+        return (string) ob_get_clean();
+    }
+
+    /**
+     * The Logs screen.
+     *
+     * A page of its own rather than a panel on the settings page: settings are
+     * what the plugin will do, and a log is what it did. The listing itself is
+     * the shared package's — every plugin here writes the same log and would
+     * otherwise grow its own reader for it — while the page, the menu entry and
+     * the capability behind clearing belong to this plugin.
+     */
+    public static function renderLogs(): void
+    {
+        if (!current_user_can('manage_options')) {
+            return;
+        }
+
+        $logger = \LonsdaLightForm\Logs::logger();
+
+        echo '<div class="wrap"><h1>' . esc_html__('Lonsda Forms — Logs', 'lonsda-light-form') . '</h1>';
+
+        if (!$logger || !class_exists('\Lauzis\WpPackages\Logs\Viewer')) {
+            // An older copy of the shared package won the version race — see
+            // WpPackages_Registry. Said plainly rather than fataling: another
+            // plugin on this site is shipping the copy that won.
+            echo '<p>' . esc_html__('The log reader needs a newer copy of the shared package than the one running.', 'lonsda-light-form') . '</p></div>';
+
+            return;
+        }
+
+        $viewer = new \Lauzis\WpPackages\Logs\Viewer($logger, ['clear' => 'llf_clear_logs']);
+
+        echo $viewer->render(); // Escaped by the viewer, field by field.
+        echo '</div>';
+    }
+
+    /** Empties the log, from the button on that panel. */
+    public static function handleClearLogs(): void
+    {
+        if (!current_user_can('manage_options')) {
+            wp_die(esc_html__('You are not allowed to do that.', 'lonsda-light-form'));
+        }
+
+        check_admin_referer('llf_clear_logs');
+
+        \LonsdaLightForm\Logs::clear();
+
+        wp_safe_redirect(admin_url('admin.php?page=' . LLF_SLUG . '-logs'));
+        exit;
+    }
+
     /** Verifies a token from the settings-page test. */
     public static function handleRecaptchaTest(): void
     {
@@ -414,6 +545,11 @@ class Admin
         }
 
         $site = trim((string) \LonsdaLightForm\Settings::get('recaptcha_site_key', ''));
+
+        // The front-end stylesheet, for the sample on the Appearance tab. It is
+        // the real file rather than a copy of it, which is the only way the
+        // sample stays true.
+        \LonsdaLightForm\Styles::enqueuePreview();
 
         wp_enqueue_script(
             'llf-settings',
@@ -551,6 +687,25 @@ class Admin
                 </p>
 
                 <p>
+                    <label for="llf-test-locale"><strong><?php esc_html_e('Language', 'lonsda-light-form'); ?></strong></label><br>
+                    <select id="llf-test-locale">
+                        <option value=""><?php
+                            printf(
+                                /* translators: %s: locale this screen is being served as */
+                                esc_html__('Site default (%s)', 'lonsda-light-form'),
+                                esc_html(determine_locale())
+                            );
+                        ?></option>
+                        <?php foreach (\LonsdaLightForm\Translations::locales() as $llf_code => $llf_label) : ?>
+                            <option value="<?php echo esc_attr($llf_code); ?>"><?php echo esc_html($llf_label); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <span class="description">
+                        <?php esc_html_e('Sends it as a visitor in that language would receive it.', 'lonsda-light-form'); ?>
+                    </span>
+                </p>
+
+                <p>
                     <button type="button" class="button" id="llf-test-notification"
                         <?php disabled('' === trim((string) ($s['notify_to'] ?? ''))); ?>>
                         <?php esc_html_e('Send test notification', 'lonsda-light-form'); ?>
@@ -598,7 +753,8 @@ class Admin
         $result = \LonsdaLightForm\TestMail::send(
             isset($_POST['post_id']) ? (int) $_POST['post_id'] : 0,
             isset($_POST['which']) ? sanitize_key(wp_unslash($_POST['which'])) : '',
-            isset($_POST['to']) ? sanitize_email(wp_unslash($_POST['to'])) : ''
+            isset($_POST['to']) ? sanitize_email(wp_unslash($_POST['to'])) : '',
+            isset($_POST['locale']) ? sanitize_text_field(wp_unslash($_POST['locale'])) : ''
         );
 
         wp_send_json($result);
@@ -627,35 +783,40 @@ class Admin
     /** @param \WP_Post $post */
     public static function renderPlaceholderBox($post): void
     {
-        $form   = \LonsdaLightForm\Forms::get(\LonsdaLightForm\Forms::tableIdForPost((int) $post->ID));
-        $fields = $form['settings']['fields'] ?? [];
+        $form = \LonsdaLightForm\Forms::get(\LonsdaLightForm\Forms::tableIdForPost((int) $post->ID));
 
-        $fixed = [
-            '{all_fields}'         => __('Every field and its answer, label in bold', 'lonsda-light-form'),
-            '{submission_details}' => __('Page, language, IP and time, omitting any it lacks', 'lonsda-light-form'),
-            '{form_title}'         => __('This form\'s title', 'lonsda-light-form'),
-            '{site_name}'          => __('The site title', 'lonsda-light-form'),
-            '{site_url}'           => __('The site address', 'lonsda-light-form'),
-            '{submitted_at}'       => __('When it was submitted, UTC', 'lonsda-light-form'),
-            '{page_title}'         => __('The page the form was on', 'lonsda-light-form'),
-            '{page_url}'           => __('That page\'s address', 'lonsda-light-form'),
-            '{language}'           => __('Language code, e.g. lv', 'lonsda-light-form'),
-            '{locale}'             => __('Full locale, e.g. lv_LV', 'lonsda-light-form'),
-            '{ip}'                 => __('Submitter\'s IP address', 'lonsda-light-form'),
-            '{user_agent}'         => __('Their browser', 'lonsda-light-form'),
-        ];
+        echo self::placeholderPanel(
+            $form['settings']['fields'] ?? [],
+            __('For the notification and auto reply. Click one to copy it.', 'lonsda-light-form'),
+            __('Save the form and its fields appear here, one token each.', 'lonsda-light-form')
+        );
+    }
+
+    /**
+     * The list of placeholder tokens, for anywhere somebody types one.
+     *
+     * Shared by the form editor, where the wording is written, and the
+     * translations screen, where it is written again in another language and
+     * the tokens have to survive the trip. A translator who retypes {site_name}
+     * as {site-name} gets a subject with a brace in it, and nothing anywhere
+     * says why — so the tokens are put in front of them, copyable, rather than
+     * left to memory.
+     *
+     * @param array  $fields Field definitions whose names are tokens too.
+     * @param string $intro  Line above the list.
+     * @param string $empty  What to say when there are no fields to list.
+     */
+    public static function placeholderPanel(array $fields, string $intro, string $empty): string
+    {
+        ob_start();
         ?>
         <div class="llf-placeholders">
-            <p class="description">
-                <?php esc_html_e('For the notification and auto reply. Click one to copy it.', 'lonsda-light-form'); ?>
-            </p>
+            <p class="description"><?php echo esc_html($intro); ?></p>
 
-            <h4><?php esc_html_e('This form\'s fields', 'lonsda-light-form'); ?></h4>
+            <h4><?php esc_html_e('Field answers', 'lonsda-light-form'); ?></h4>
 
             <?php if (!$fields) : ?>
-                <p class="description">
-                    <?php esc_html_e('Save the form and its fields appear here, one token each.', 'lonsda-light-form'); ?>
-                </p>
+                <p class="description"><?php echo esc_html($empty); ?></p>
             <?php else : ?>
                 <ul class="llf-placeholder-list">
                     <?php foreach ($fields as $field) : ?>
@@ -669,7 +830,7 @@ class Admin
 
             <h4><?php esc_html_e('Always available', 'lonsda-light-form'); ?></h4>
             <ul class="llf-placeholder-list">
-                <?php foreach ($fixed as $token => $what) : ?>
+                <?php foreach (\LonsdaLightForm\Notifications::placeholderReference() as $token => $what) : ?>
                     <li>
                         <code class="llf-copy" tabindex="0" role="button"><?php echo esc_html($token); ?></code>
                         <span class="description"><?php echo esc_html($what); ?></span>
@@ -678,7 +839,7 @@ class Admin
             </ul>
 
             <p class="description">
-                <?php esc_html_e('A field named the same as a fixed one does not replace it — the fixed set means the same on every form.', 'lonsda-light-form'); ?>
+                <?php esc_html_e('Underscores, not dashes: {site_name} is replaced and {site-name} is not — an unknown token is left in the message as it was typed. A field named the same as a fixed one does not displace it, since the fixed set means the same on every form.', 'lonsda-light-form'); ?>
             </p>
         </div>
 
@@ -691,9 +852,27 @@ class Admin
             .llf-copied { background: #00a32a !important; color: #fff !important; }
         </style>
         <?php
+
+        return (string) ob_get_clean();
     }
 
     /** Loads the form editor's own script, for the Testing tab. */
+    /** The copy-a-token script, for either screen that shows the panel. */
+    public static function enqueuePlaceholders(): void
+    {
+        wp_enqueue_script('llf-placeholders', LLF_URL . 'assets/js/placeholders.js', [], LLF_VERSION, true);
+    }
+
+    /** The same panel appears on the translations screen. */
+    public static function enqueueTranslations(): void
+    {
+        if (!isset($_GET['page']) || LLF_SLUG . '-translations' !== $_GET['page']) {
+            return;
+        }
+
+        self::enqueuePlaceholders();
+    }
+
     public static function enqueueFormEditor(): void
     {
         if (!function_exists('get_current_screen')) {
@@ -707,6 +886,7 @@ class Admin
         }
 
         wp_enqueue_script('llf-form-editor', LLF_URL . 'assets/js/form-editor.js', [], LLF_VERSION, true);
+        self::enqueuePlaceholders();
 
         wp_localize_script('llf-form-editor', 'LLFFormEditor', [
             'postUrl' => admin_url('admin-post.php'),

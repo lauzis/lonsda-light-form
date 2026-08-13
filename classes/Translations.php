@@ -30,6 +30,16 @@ class Translations
     public const GROUP_CONFIRMATION = 'confirmation';
     public const GROUP_NOTIFICATION = 'notification';
     public const GROUP_AUTO_REPLY   = 'auto_reply';
+    public const GROUP_GENERAL      = 'general';
+
+    /**
+     * Stands in for a form id, to ask for the plugin's own strings on their own.
+     *
+     * Negative because every real form id is positive and 0 already means "all
+     * of them" — a third meaning needs a third value rather than a flag nobody
+     * remembers to pass.
+     */
+    public const GENERAL = -1;
 
     /**
      * Group => heading, in the order the editor shows them.
@@ -48,6 +58,11 @@ class Translations
             self::GROUP_CONFIRMATION => __('Confirmation message', 'lonsda-light-form'),
             self::GROUP_NOTIFICATION => __('Notification email', 'lonsda-light-form'),
             self::GROUP_AUTO_REPLY   => __('Auto reply email', 'lonsda-light-form'),
+            // Last, though a visitor meets these first: they belong to the
+            // plugin rather than to the form being worked on, and are the same
+            // however many forms the site has. Above the form's own strings
+            // they would push the work somebody came here to do off the screen.
+            self::GROUP_GENERAL      => __('General texts', 'lonsda-light-form'),
         ];
     }
 
@@ -84,9 +99,32 @@ class Translations
         return array_filter($grouped);
     }
 
+    /**
+     * Whether a string is a body of text rather than a line of one.
+     *
+     * Decides what the editor gives a translator to type into. Everything used
+     * to get a one-line input, including the two email bodies and the
+     * confirmation — boxes that cannot hold a paragraph break, so a translated
+     * message arrived as one unbroken block however it was written. A label
+     * still gets a single line: a textarea for the word "Email" invites a
+     * paragraph nobody wants.
+     */
+    public static function isBody(string $text): bool
+    {
+        return false !== strpos($text, "\n")
+            || 1 === preg_match('/<(p|br|div|ul|ol|h[1-6]|blockquote)\b/i', $text)
+            || mb_strlen($text) > 120;
+    }
+
     /** Which group a form-level key belongs to. */
     private static function groupForKey(string $keyName): string
     {
+        // With the fields and the button: it names the form rather than being
+        // something the form says, and a heading over one row is furniture.
+        if ('title_key' === $keyName) {
+            return self::GROUP_FIELDS;
+        }
+
         if (0 === strpos($keyName, 'auto_reply')) {
             return self::GROUP_AUTO_REPLY;
         }
@@ -107,11 +145,28 @@ class Translations
         // Late on init: the locale is not settled until translation plugins
         // have had their say about which language this request is in.
         add_action('init', [self::class, 'load'], 20);
+
+        // And again whenever the locale moves. Core unloads every text domain
+        // on a switch and lets them load themselves again from the places it
+        // knows to look — which does not include the directory these live in,
+        // so without this a switched locale leaves the form strings gone
+        // rather than translated. The hook passes the new locale, which is why
+        // load() takes one.
+        add_action('change_locale', [self::class, 'load']);
     }
 
-    public static function load(): void
+    /**
+     * @param string $locale Defaults to the locale the request is in.
+     */
+    public static function load(string $locale = ''): void
     {
-        $locale = determine_locale();
+        // Unloaded rather than loaded over: load_textdomain() merges into what
+        // is already there, so a string translated in the language being left
+        // would otherwise survive into the one being entered. Reloadable, so
+        // this does not stop the domain being loaded again later.
+        unload_textdomain(self::DOMAIN, true);
+
+        $locale = '' !== $locale ? self::sanitizeLocale($locale) : determine_locale();
         $path   = self::path($locale);
 
         if ($locale && is_readable($path)) {
@@ -305,7 +360,16 @@ class Translations
     {
         $strings = [];
 
-        foreach (Forms::all() as $row) {
+        // With the forms rather than instead of them when nothing is picked:
+        // they are part of what the site says, and a POT that left them out
+        // would be a translation job that looked finished and was not.
+        if ($form_id <= 0) {
+            foreach (Strings::generalStrings() as $key => $text) {
+                self::collect($strings, $key, $text, __('Every form', 'lonsda-light-form'), self::GROUP_GENERAL);
+            }
+        }
+
+        foreach (self::GENERAL === $form_id ? [] : Forms::all() as $row) {
             if ($form_id > 0 && (int) $row->id !== $form_id) {
                 continue;
             }
@@ -337,7 +401,7 @@ class Translations
             // The form's own wording — confirmation, notification, auto reply.
             // Keyed by the form's text id rather than shared, because two forms
             // saying "Thank you" may well want to say it differently.
-            foreach (Strings::formStrings($settings) as $keyName => $pair) {
+            foreach (Strings::formStrings($settings, $title) as $keyName => $pair) {
                 self::collect($strings, $pair['key'], $pair['text'], $title, self::groupForKey($keyName));
             }
         }

@@ -22,6 +22,31 @@ class Logs
         return \WpPackages_Registry::logger(LLF_SLUG, ['dir' => LLF_LOG_PATH]);
     }
 
+    /**
+     * The Slack test button, or null when the package is absent or older than
+     * the version that added it.
+     *
+     * @return \Lauzis\WpPackages\Logs\SlackTester|null
+     */
+    public static function slackTester()
+    {
+        static $tester = null;
+
+        if (null !== $tester) {
+            return $tester;
+        }
+
+        $logger = self::logger();
+
+        if (!$logger || !class_exists('\\Lauzis\\WpPackages\\Logs\\SlackTester')) {
+            return null;
+        }
+
+        $tester = new \Lauzis\WpPackages\Logs\SlackTester($logger);
+
+        return $tester;
+    }
+
     public static function add(string $action, string $message = '', array $context = []): bool
     {
         $logger = self::logger();

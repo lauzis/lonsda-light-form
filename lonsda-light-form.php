@@ -3,7 +3,7 @@
  * Plugin Name: Lonsda Light Form
  * Plugin URI:  https://github.com/lauzis/lonsda-light-form
  * Description: Lightweight Carbon Fields form builder.
- * Version:     0.29.0
+ * Version:     0.29.1
  * Author:      Aivars Lauzis
  * Text Domain: lonsda-light-form
  * Domain Path: /languages
@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('LLF_VERSION', '0.29.0');
+define('LLF_VERSION', '0.29.1');
 define('LLF_DIR', plugin_dir_path(__FILE__));
 define('LLF_URL', plugin_dir_url(__FILE__));
 define('LLF_SLUG', 'lonsda-light-form');
@@ -52,6 +52,18 @@ add_action('after_setup_theme', static function (): void {
 // Carbon Fields fires this on init at priority 0, so it must be attached before
 // init runs rather than from inside an init callback.
 add_action('carbon_fields_register_fields', ['\LonsdaLightForm\Settings', 'register']);
+
+// The Slack test button answers over admin-ajax, which never renders the
+// settings page, so its endpoint is registered on every admin request.
+if (is_admin()) {
+    add_action('admin_init', static function (): void {
+        $tester = \LonsdaLightForm\Logs::slackTester();
+
+        if ($tester) {
+            $tester->boot();
+        }
+    });
+}
 
 add_action('admin_menu', static function (): void {
     add_menu_page(

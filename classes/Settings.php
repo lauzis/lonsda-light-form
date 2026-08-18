@@ -51,6 +51,15 @@ class Settings
             'domain' => 'lonsda-light-form',
         ]);
 
+        // Draws the "Send a test message" button under the Slack webhook field.
+        // Without the callback the schema's html field renders nothing, so an
+        // older bundled package simply has no button.
+        $tester = Logs::slackTester();
+
+        if ($tester) {
+            $page->callback('logs_slack_test', [$tester, 'render']);
+        }
+
         $page->register(\WpPackages_Registry::schema('logs'), [
             'prefix' => self::PREFIX,
             'domain' => 'wp-plugin-packages',

@@ -853,6 +853,9 @@ label.
 
 ## Changelog
 
+### 0.29.1
+- Added a **Send a test message** button beside the Slack webhook field. It posts to whatever is in the field, saved or not, waits for Slack's answer and reports it — log traffic is fire-and-forget, so a webhook Slack rejects otherwise fails silently.
+
 ### 0.29.0
 - Log entries can be sent to **Slack**: a webhook URL and an errors-only/every-entry choice on the Logging tab. Errors are posted even with logging off — a notification that failed to send is not something anybody finds by opening the Logs page a week later. See [Settings](#settings).
 - Bundled shared library updated to wp-plugin-packages 1.15.0.

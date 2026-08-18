@@ -702,13 +702,22 @@ The test reads what is *stored*, so the settings have to be saved first.
 | Spam | Honeypot and minimum completion time. |
 | Google reCAPTCHA v2 | The two keys, links to Google's console, and a live test. |
 | Import / Export | Form definitions as JSON. |
-| Logging | Whether the plugin keeps a log, shared with the other plugins here. The log itself is a screen of its own — settings are what the plugin will do, a log is what it did. |
+| Logging | Whether the plugin keeps a log, shared with the other plugins here, and an optional Slack webhook to post entries to. The log itself is a screen of its own — settings are what the plugin will do, a log is what it did. |
 
 The settings page is rendered by the shared package from `config/settings.json`,
 so it looks and behaves like every other plugin in this account.
 
 **Lonsda Forms → Logs** shows what was recorded: the days covered, the most
 recent entries newest first, and a button to clear them.
+
+Entries can also go to **Slack**. Fill in an incoming webhook URL on the Logging
+tab and choose whether Slack gets errors only — the default — or every entry.
+Errors are posted even with logging switched off, which is the case worth having:
+a submission whose notification never sent is not something anybody discovers by
+opening the Logs page a week later. Sending is fire-and-forget, so a submission
+never waits on Slack; the cost is that a webhook Slack rejects fails quietly.
+Only `https://` URLs are used, since the webhook URL is itself a credential —
+anyone holding it can post to the channel.
 
 A **test** send is logged with the message itself — subject, body, headers, the
 language it went out in, and whether there was a translation file for that
@@ -841,6 +850,12 @@ The editor script for the block is plain JavaScript using
 `wp.element.createElement` rather than JSX, so there is no build step — one
 small script is not worth a toolchain someone must install before changing a
 label.
+
+## Changelog
+
+### 0.29.0
+- Log entries can be sent to **Slack**: a webhook URL and an errors-only/every-entry choice on the Logging tab. Errors are posted even with logging off — a notification that failed to send is not something anybody finds by opening the Logs page a week later. See [Settings](#settings).
+- Bundled shared library updated to wp-plugin-packages 1.15.0.
 
 ## Requirements
 
